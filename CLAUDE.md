@@ -85,11 +85,11 @@ Frontend (Socket.IO Client)
 
 #### 3. AI 뉴스 분석 파이프라인
 ```
-RSS/API → News Crawler (Python)
+네이버 뉴스 API → News Crawler (Python)
     ↓
-종목명 자동 추출 (NER)
+종목명 자동 추출 (NER - stock_master 매칭)
     ↓
-AI Service (Claude API)
+AI Service (OpenAI GPT-4o-mini 우선 → Claude 폴백)
   ├─ 요약 (2~3문장)
   ├─ 감성 점수 (-1 ~ 1)
   ├─ 영향도 (0 ~ 1)
@@ -97,7 +97,9 @@ AI Service (Claude API)
     ↓
 Supabase `news` 테이블 저장
     ↓
-Alert Service → 사용자 알림
+Supabase Realtime → Frontend (실시간 뉴스 알림)
+    ↓
+TTS 자동 재생 + Toast 알림
 ```
 
 ---
@@ -710,18 +712,77 @@ CREATE INDEX idx_stock_master_name ON stock_master USING gin(name gin_trgm_ops);
 
 ## 🎯 다음 개발 우선순위
 
-### Phase 2 (현재 진행 중)
-- [x] ✅ 실시간 시세 스트리밍 구현 (WebSocket + KIS REST API)
+### ✅ Phase 2 완료 (2025-10-19)
+- [x] ✅ Phase 2.1: 실시간 시세 스트리밍 (WebSocket + KIS REST API)
   - [x] Stream Service 백엔드 구축 완료
   - [x] Frontend WebSocket 통합 완료
   - [x] 초기 시세 로딩 (KIS REST API) 완료
-- [ ] 대시보드 MVP 완성
-- [ ] 미니 차트 추가 (Recharts)
+- [x] ✅ Phase 2.2: 보유 종목 수익률 실시간 계산
+  - [x] 수익률 계산 엔진 구현
+  - [x] Portfolio 정렬 기능
+  - [x] Statistics 차트 (Recharts)
+- [x] ✅ Phase 2.3: 뉴스 크롤링 + AI 분석 파이프라인
+  - [x] News Crawler (Python) - Railway 배포
+  - [x] AI Service (OpenAI GPT-4o-mini 우선, Claude 폴백)
+  - [x] 사용자 보유/관심 종목 기반 크롤링
+  - [x] News 페이지 (필터, 검색, 정렬, TTS)
+- [x] ✅ Phase 2.4: TTS 자동 알림 시스템
+  - [x] Alert Rules 엔진
+  - [x] TTS Service (큐 시스템)
+  - [x] Monitoring Service (전역 통합)
+  - [x] **Phase 2.4.3**: Supabase Realtime 뉴스 구독 + 전역 Toast 알림
 
-### Phase 3 (예정)
-- [ ] 뉴스 크롤러 + AI 분석 파이프라인
-- [ ] 알림 시스템 + TTS 음성 읽기
-- [ ] 백테스트 기능
+### 🔜 Phase 3 - 다음 개발 우선순위 (2주 예상)
+
+#### 🎯 즉시 착수: Phase 3.4 - 접근성 강화 (2일)
+**우선순위**: ⭐⭐⭐ 시니어 사용자 타겟이므로 매우 중요!
+- [ ] **고대비 모드** (1일)
+  - [ ] Profile.tsx에 테마 토글 추가 (light/dark/high-contrast)
+  - [ ] TailwindCSS dark: 클래스 적용
+  - [ ] WCAG AA 기준 준수 (명도비 ≥ 4.5:1)
+  - [ ] 모든 UI 요소 색상 대비 검증
+- [ ] **큰 글꼴 모드** (0.5일)
+  - [ ] Profile.tsx에 글꼴 크기 선택 (18px/20px/24px)
+  - [ ] CSS 변수 `--font-size-base` 적용
+  - [ ] 반응형 레이아웃 유지 확인
+- [ ] **키보드 네비게이션 개선** (0.5일)
+  - [ ] 모든 버튼/링크 Tab 순서 최적화
+  - [ ] Enter 키로 모든 액션 실행
+  - [ ] Esc 키로 모달/폼 닫기
+  - [ ] 포커스 시각화 (outline ring)
+
+#### Phase 3.1 - 미니차트 구현 (3일)
+**우선순위**: ⭐⭐ 실시간 시세와 연동된 차트로 높은 가치
+- [ ] `frontend/src/components/MiniChart.tsx` 생성
+  - [ ] Recharts LineChart 기반
+  - [ ] 1분봉/5분봉 데이터 표시
+  - [ ] 호가 10단계 표시 (매수/매도)
+  - [ ] 체결 내역 스트림 (최근 10건)
+  - [ ] 차트 확대/축소 (zoom) 기능
+- [ ] Dashboard/Portfolio/Watchlist에 통합
+- [ ] WebSocket 실시간 데이터 연동
+- [ ] 반응형 디자인 (모바일/데스크톱)
+
+#### Phase 3.3 - 성능 최적화 (2일)
+**우선순위**: ⭐⭐ 현재 번들 크기 844KB → 500KB 이하로 감소
+- [ ] **Vite 코드 스플리팅** (1일)
+  - [ ] `vite.config.ts`에 manualChunks 설정
+  - [ ] Vendor 청크 분리 (React, Recharts 등)
+  - [ ] Route-based 청크 분리 (React.lazy)
+- [ ] **Redis 캐싱 고도화** (0.5일)
+  - [ ] 시세 캐싱 전략 개선 (현재 5분 → 동적 TTL)
+  - [ ] AI 분석 캐싱 전략 검증 (현재 24시간)
+- [ ] **WebSocket 메시지 압축** (0.5일)
+  - [ ] Socket.IO compression 활성화
+  - [ ] 메시지 페이로드 최적화
+
+#### Phase 3.2 - 백테스트 시스템 (5일)
+**우선순위**: ⭐ 나중 단계 (Phase 4로 이동 고려)
+- [ ] `backend/backtest-service/` 생성 (Python)
+- [ ] Backtrader 라이브러리 통합
+- [ ] 전략 정의 인터페이스 (매수/매도 조건)
+- [ ] 성과 지표 계산 (CAGR, MDD, Sharpe Ratio)
+- [ ] Frontend 결과 시각화 페이지
 
 ---
 
@@ -818,11 +879,25 @@ CREATE INDEX idx_stock_master_name ON stock_master USING gin(name gin_trgm_ops);
 
 **마지막 업데이트**: 2025-10-19
 **프로젝트 상태**: Phase 2 완료 ✅ → Phase 3 준비 중
+
 **완료된 Phase**:
-- ✅ Phase 1: 인증, 포트폴리오, 관심종목, 종목검색
-- ✅ Phase 2.1: 실시간 주가 스트리밍 (WebSocket + KIS REST API)
-- ✅ Phase 2.2: 보유 종목 수익률 실시간 계산
-- ✅ **Phase 2.3: 뉴스 크롤링 + AI 분석 파이프라인** (2025-10-19 완료)
-- ✅ Phase 2.4: TTS 자동 알림 시스템
-**현재 배포**: Railway (5개 서비스 모두 운영 중)
-**다음 마일스톤**: Phase 3 - 미니차트, 백테스트, 성능 최적화, 접근성 강화
+- ✅ **Phase 1** (2025-10-18): 인증, 포트폴리오, 관심종목, 종목검색
+- ✅ **Phase 2.1** (2025-10-18): 실시간 주가 스트리밍 (WebSocket + KIS REST API)
+- ✅ **Phase 2.2** (2025-10-18): 보유 종목 수익률 실시간 계산
+- ✅ **Phase 2.3** (2025-10-19): 뉴스 크롤링 + AI 분석 파이프라인
+  - 네이버 뉴스 API 연동
+  - AI Service (OpenAI GPT-4o-mini 우선 → Claude 폴백)
+  - 사용자 보유/관심 종목 기반 크롤링
+- ✅ **Phase 2.4** (2025-10-19): TTS 자동 알림 시스템
+  - Alert Rules 엔진
+  - Supabase Realtime 뉴스 구독
+  - 전역 모니터링 서비스 (App.tsx)
+  - 모든 페이지에서 Toast 알림 수신
+
+**현재 배포**: Railway (4개 서비스 운영 중)
+- ✅ Frontend: https://jusik.minhyuk.kr
+- ✅ stream-service: WebSocket 실시간 시세
+- ✅ news-crawler: 5분마다 뉴스 수집
+- ✅ ai-service: OpenAI GPT-4o-mini 기반 분석
+
+**다음 마일스톤**: Phase 3.4 접근성 강화 (시니어 UX 최우선) → Phase 3.1 미니차트 → Phase 3.3 성능 최적화

@@ -1,6 +1,6 @@
 # 📋 실시간 트레이딩 인텔리전스 플랫폼 - Phase별 개발 계획서
 
-> **최종 업데이트**: 2025-01-18
+> **최종 업데이트**: 2025-10-19
 > **프로젝트 경로**: `/Users/dev/jusik`
 > **필수 참조 문서**:
 > - `CLAUDE.md` - 프로젝트 가이드
@@ -314,31 +314,158 @@
 
 ---
 
-## 🔜 Phase 3: 고급 기능 및 최적화 (2주)
+## 🔜 Phase 3: 접근성, 차트, 성능 최적화 (2주)
 
-### 3.1 미니차트 구현 (3일)
-- [ ] `frontend/src/components/MiniChart.tsx`
-- [ ] Recharts LineChart
-- [ ] 1분봉/5분봉 데이터
-- [ ] 호가 10단계 표시
-- [ ] 체결 내역 스트림
+### 📍 Phase 3.4: 접근성 강화 (2일) ⭐⭐⭐ **최우선!**
 
-### 3.2 백테스트 시스템 (5일)
-- [ ] `backend/backtest-service/` 생성
-- [ ] Python Backtrader
+#### 3.4.1 고대비 모드 구현 (1일)
+- [ ] `frontend/src/stores/profileStore.ts` 업데이트
+  - [ ] `theme` 상태 추가 (`'light' | 'dark' | 'high-contrast'`)
+  - [ ] `setTheme()` 메서드 추가
+  - [ ] Supabase에 테마 설정 저장/로드
+- [ ] `frontend/src/pages/Profile.tsx` UI 추가
+  - [ ] 테마 선택 라디오 버튼 (Light / Dark / High Contrast)
+  - [ ] 미리보기 색상 샘플 표시
+  - [ ] 저장 버튼
+- [ ] `frontend/src/index.css` 업데이트
+  - [ ] CSS 변수 정의 (light/dark/high-contrast 모드별)
+  - [ ] `data-theme` 속성 기반 스타일링
+- [ ] TailwindCSS dark mode 클래스 적용
+  - [ ] 모든 컴포넌트에 `dark:` 클래스 추가
+  - [ ] 배경색, 텍스트 색상 대비 검증
+- [ ] WCAG AA 기준 검증
+  - [ ] 모든 텍스트 명도비 ≥ 4.5:1
+  - [ ] 링크/버튼 명도비 ≥ 3:1
+
+**검증 기준**:
+- [ ] Chrome DevTools Lighthouse 접근성 점수 ≥ 90
+- [ ] 고대비 모드에서 모든 UI 요소 식별 가능
+- [ ] 테마 변경 시 페이지 깜빡임 없음
+
+#### 3.4.2 큰 글꼴 모드 구현 (0.5일)
+- [ ] `frontend/src/stores/profileStore.ts` 업데이트
+  - [ ] `fontSize` 상태 추가 (`'normal' | 'large' | 'xlarge'`)
+  - [ ] `setFontSize()` 메서드 추가
+- [ ] `frontend/src/pages/Profile.tsx` UI 추가
+  - [ ] 글꼴 크기 선택 버튼 (보통 18px / 크게 20px / 매우 크게 24px)
+- [ ] `frontend/src/index.css` 업데이트
+  - [ ] CSS 변수 `--font-size-base` 정의
+  - [ ] `data-font-size` 속성 기반 크기 조정
+- [ ] 모든 컴포넌트 반응형 확인
+  - [ ] 레이아웃 깨짐 방지
+  - [ ] 버튼/입력 필드 크기 자동 조정
+
+**검증 기준**:
+- [ ] 세 가지 글꼴 크기 모두 레이아웃 유지
+- [ ] 모바일 환경에서도 정상 동작
+
+#### 3.4.3 키보드 네비게이션 개선 (0.5일)
+- [ ] 전역 focus 스타일 추가
+  - [ ] `frontend/src/index.css`에 `:focus-visible` 스타일
+  - [ ] TailwindCSS `ring-2` 클래스 적용
+- [ ] 모든 인터랙티브 요소 확인
+  - [ ] 버튼, 링크, 입력 필드 Tab 순서 최적화
+  - [ ] `tabIndex` 속성 적절히 설정
+- [ ] 키보드 단축키 추가
+  - [ ] Enter 키로 모든 버튼/링크 실행
+  - [ ] Esc 키로 모달/폼 닫기
+  - [ ] Arrow 키로 목록 네비게이션 (Portfolio/Watchlist)
+- [ ] ARIA 레이블 추가
+  - [ ] 모든 버튼에 `aria-label` 추가
+  - [ ] 폼 필드에 `aria-describedby` 추가
+  - [ ] 알림에 `role="alert"` 추가
+
+**검증 기준**:
+- [ ] 마우스 없이 모든 기능 사용 가능
+- [ ] 포커스 상태 시각적으로 명확
+- [ ] 스크린 리더 호환성 확인 (VoiceOver/NVDA)
+
+---
+
+### 📍 Phase 3.1: 미니차트 구현 (3일)
+
+#### 3.1.1 MiniChart 컴포넌트 구현 (2일)
+- [ ] `frontend/src/components/MiniChart.tsx` 생성
+  - [ ] Recharts LineChart 기반
+  - [ ] Props: `symbol`, `data`, `height`, `interval`
+  - [ ] 1분봉/5분봉 데이터 시각화
+  - [ ] X축: 시간 (HH:mm), Y축: 가격
+  - [ ] Tooltip: 시간, 가격, 등락률
+  - [ ] 확대/축소 (zoom) 기능
+- [ ] 호가 10단계 컴포넌트
+  - [ ] `frontend/src/components/OrderBook.tsx` 생성
+  - [ ] 매수 호가 5단계 (녹색)
+  - [ ] 매도 호가 5단계 (빨간색)
+  - [ ] 잔량 막대 그래프
+  - [ ] 최우선 호가 하이라이트
+- [ ] 체결 내역 컴포넌트
+  - [ ] `frontend/src/components/TradeHistory.tsx` 생성
+  - [ ] 최근 10건 체결가 표시
+  - [ ] 시간, 가격, 체결량 표시
+  - [ ] 실시간 스크롤 (새 체결가 추가 시)
+
+#### 3.1.2 WebSocket 데이터 연동 (1일)
+- [ ] Stream Service 업데이트
+  - [ ] 1분봉/5분봉 데이터 생성 로직
+  - [ ] 호가 10단계 WebSocket 이벤트
+  - [ ] 체결가 WebSocket 이벤트
+- [ ] Frontend 훅 구현
+  - [ ] `frontend/src/hooks/useChartData.ts`
+  - [ ] `useOrderBook.ts`
+  - [ ] `useTradeHistory.ts`
+- [ ] Dashboard/Portfolio에 통합
+  - [ ] 종목별 미니차트 표시
+  - [ ] 클릭 시 상세 모달 표시
+
+**검증 기준**:
+- [ ] 실시간 차트 업데이트 ≤ 2초 지연
+- [ ] 차트 렌더링 성능 양호 (60fps)
+- [ ] 모바일/데스크톱 반응형
+
+---
+
+### 📍 Phase 3.3: 성능 최적화 (2일)
+
+#### 3.3.1 Vite 코드 스플리팅 (1일)
+- [ ] `frontend/vite.config.ts` 생성
+  - [ ] `build.rollupOptions.output.manualChunks` 설정
+  - [ ] Vendor 청크 분리 (React, Recharts, Supabase)
+  - [ ] Route-based 청크 분리 (`React.lazy` 사용)
+- [ ] 페이지별 지연 로딩
+  - [ ] `const Portfolio = React.lazy(() => import('./pages/Portfolio'))`
+  - [ ] `<Suspense fallback={<Loading />}>` 래퍼
+- [ ] 빌드 테스트
+  - [ ] 번들 크기 844KB → 500KB 이하 감소 확인
+  - [ ] 초기 로딩 시간 측정
+
+#### 3.3.2 Redis 캐싱 고도화 (0.5일)
+- [ ] Stream Service 캐싱 전략 개선
+  - [ ] 현재가 캐싱 TTL: 5분 → 1분 (장중), 10분 (장 마감 후)
+  - [ ] 호가 캐싱 TTL: 30초
+- [ ] AI Service 캐싱 검증
+  - [ ] 뉴스 분석 캐싱 TTL: 24시간 (현재 유지)
+  - [ ] 캐시 히트율 모니터링
+
+#### 3.3.3 WebSocket 메시지 압축 (0.5일)
+- [ ] Stream Service 업데이트
+  - [ ] Socket.IO `perMessageDeflate` 옵션 활성화
+  - [ ] 메시지 페이로드 크기 최소화 (불필요한 필드 제거)
+- [ ] Frontend 업데이트
+  - [ ] 압축된 메시지 디코딩 확인
+
+**검증 기준**:
+- [ ] 번들 크기 ≤ 500KB (gzip)
+- [ ] 초기 로딩 시간 ≤ 3초
+- [ ] Redis 메모리 사용량 ≤ 100MB
+
+---
+
+### 📍 Phase 3.2: 백테스트 시스템 (5일) - **Phase 4로 이동 고려**
+- [ ] `backend/backtest-service/` 생성 (Python)
+- [ ] Backtrader 라이브러리 통합
 - [ ] 전략 정의 인터페이스
-- [ ] 성과 지표 (CAGR, MDD, Sharpe)
-
-### 3.3 성능 최적화 (2일)
-- [ ] Redis 캐싱 전략 고도화
-- [ ] WebSocket 메시지 압축
-- [ ] DB 쿼리 최적화
-
-### 3.4 접근성 강화 (2일)
-- [ ] 고대비 모드 (WCAG AA)
-- [ ] 큰 글꼴 모드
-- [ ] 키보드 네비게이션
-- [ ] 스크린 리더 지원 (ARIA)
+- [ ] 성과 지표 (CAGR, MDD, Sharpe Ratio)
+- [ ] Frontend 결과 시각화 페이지
 
 ---
 
@@ -366,14 +493,43 @@
 
 ---
 
+## 🔄 Phase 2.4.3: Supabase Realtime 뉴스 구독 ✅ **완료 (2025-10-19)**
+
+### 구현 내용
+- [x] `monitoring.ts` - Realtime 구독 구현 ✅
+  - [x] Supabase Realtime 뉴스 테이블 구독 ✅
+  - [x] related_symbols 필터링 (사용자 포트폴리오/관심종목) ✅
+  - [x] INSERT 이벤트 리스닝 ✅
+  - [x] 알림 생성 및 TTS 재생 ✅
+- [x] LocalStorage 기반 중복 방지 (7일) ✅
+  - [x] 뉴스 ID 저장 (최대 500개) ✅
+  - [x] 7일 이상 오래된 ID 자동 제거 ✅
+- [x] App.tsx 전역 모니터링 통합 ✅
+  - [x] `useEffect`에서 `MonitoringService.start()` 호출 ✅
+  - [x] user, ttsConfig.enabled 의존성 관리 ✅
+  - [x] 언마운트 시 `stop()` 호출 ✅
+- [x] 모든 페이지에서 Toast 알림 수신 ✅
+  - [x] `ToastContainer` 컴포넌트를 App.tsx로 이동 ✅
+  - [x] Dashboard, News, Portfolio, Watchlist 등 모든 페이지에서 표시 ✅
+
+### 검증 완료
+- [x] 새 뉴스 발행 시 5초 이내 알림 생성 ✅
+- [x] TTS 자동 재생 (impact_score ≥ 임계값) ✅
+- [x] Toast 알림 모든 페이지 표시 ✅
+- [x] 중복 알림 방지 확인 ✅
+
+**배포 완료**: 모든 기능이 https://jusik.minhyuk.kr에서 정상 작동 중
+
+---
+
 ## 📊 전체 일정 요약
 
 | Phase | 기간 | 핵심 기능 | 상태 |
 |-------|------|-----------|------|
-| Phase 1 | 2주 | 인증, 포트폴리오 | ✅ 완료 |
-| **Phase 2** | **3주** | **실시간 시세 + TTS** | 🔄 **진행 예정** |
-| Phase 3 | 2주 | 차트, 백테스트 | 🔜 대기 |
-| Phase 4 | 1주 | 배포, QA | 🔜 대기 |
+| Phase 1 | 2주 | 인증, 포트폴리오 | ✅ 완료 (2025-10-18) |
+| **Phase 2** | **3주** | **실시간 시세 + TTS** | ✅ **완료 (2025-10-19)** |
+| Phase 3 | 2주 | 접근성, 차트, 성능 최적화 | 🔜 **다음 단계** |
+| Phase 4 | 1주 | 백테스트, QA | 🔜 대기 |
 
 ---
 
@@ -397,18 +553,49 @@
 
 ---
 
-## 🎯 현재 우선순위 (2025-01-18)
+## 🎯 현재 우선순위 (2025-10-19)
 
-### 🔥 즉시 착수: Phase 2.1.1 - Stream Service 구축
+### ✅ Phase 2 완료 (2025-10-19)
+모든 Phase 2 작업이 성공적으로 완료되었습니다!
+- ✅ 실시간 주가 스트리밍 (WebSocket + KIS REST API)
+- ✅ 보유 종목 수익률 실시간 계산
+- ✅ 뉴스 크롤링 + AI 분석 (OpenAI GPT-4o-mini 우선)
+- ✅ TTS 자동 알림 시스템 (전역 모니터링 + Toast)
+
+**배포 완료**: https://jusik.minhyuk.kr (Railway)
+
+---
+
+### 🔥 다음 단계: Phase 3.4 - 접근성 강화 (2일)
+
+**우선순위**: ⭐⭐⭐ **최우선!** 시니어 사용자 타겟이므로 매우 중요
 
 **첫 번째 작업**:
-1. [ ] `backend/stream-service/src/kis-websocket.ts` 파일 생성
-2. [ ] KIS API WebSocket 연결 구현
-3. [ ] OAuth 토큰 발급 및 관리
+1. [ ] Profile.tsx 테마 설정 UI 추가
+   - [ ] 고대비 모드 토글 (light/dark/high-contrast)
+   - [ ] 글꼴 크기 선택 (18px/20px/24px)
+2. [ ] TailwindCSS dark mode 클래스 적용
+3. [ ] CSS 변수 `--font-size-base` 전역 적용
+4. [ ] WCAG AA 기준 색상 대비 검증
+
+**검증 기준**:
+- [ ] 모든 텍스트 명도비 ≥ 4.5:1
+- [ ] Tab 키로 모든 요소 접근 가능
+- [ ] Enter/Esc 키로 모든 액션 실행 가능
+- [ ] 포커스 상태 시각화 (outline ring)
 
 **참조 문서**:
-- `docs/kis_api/access.token.md` - OAuth 인증
-- `docs/kis_api/real-time-websocket-ket.md` - WebSocket 연결
+- WCAG 2.1: https://www.w3.org/WAI/WCAG21/quickref/
+- TailwindCSS Dark Mode: https://tailwindcss.com/docs/dark-mode
+
+---
+
+### 📋 Phase 3 전체 계획 (2주)
+
+**Phase 3.4**: 접근성 강화 (2일) ← **즉시 착수**
+**Phase 3.1**: 미니차트 구현 (3일)
+**Phase 3.3**: 성능 최적화 (2일) - 번들 크기 844KB → 500KB
+**Phase 3.2**: 백테스트 시스템 (5일) - Phase 4로 이동 고려
 
 ---
 
