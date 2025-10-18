@@ -322,9 +322,9 @@ class TTSService {
   /**
    * 뉴스 메시지 생성 (Phase 2.3.3 고도화)
    * @param alert 알림 데이터 (뉴스 메타데이터 포함)
-   * @param portfolio 포트폴리오 데이터
+   * @param _portfolio 포트폴리오 데이터 (미사용 - alert.isOwned로 판단)
    */
-  private generateNewsMessage(alert: Alert, portfolio?: PortfolioWithProfit[]): string {
+  private generateNewsMessage(alert: Alert, _portfolio?: PortfolioWithProfit[]): string {
     const { symbolName, isOwned, sentimentScore, impactScore, recommendedAction, summary } = alert;
 
     const prefix = isOwned ? '보유 종목' : '관심 종목';
