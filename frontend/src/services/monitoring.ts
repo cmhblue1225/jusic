@@ -369,22 +369,29 @@ class MonitoringService {
   }
 
   /**
-   * 종목 코드에서 종목명 해석
+   * 종목 코드에서 종목명 해석 (Supabase에서 직접 조회)
    */
-  private getStockName(symbol: string): string {
-    const portfolioStore = usePortfolioStore.getState();
-    const watchlistStore = useWatchlistStore.getState();
-
+  private async getStockName(symbol: string): Promise<string> {
     // 보유 종목에서 먼저 찾기
-    const portfolioItem = portfolioStore.items.find((item: any) => item.symbol === symbol);
-    if (portfolioItem) {
-      return portfolioItem.symbol_name;
+    const { data: portfolioData } = await supabase
+      .from('portfolios')
+      .select('symbol_name')
+      .eq('symbol', symbol)
+      .maybeSingle();
+
+    if (portfolioData) {
+      return portfolioData.symbol_name;
     }
 
     // 관심 종목에서 찾기
-    const watchlistItem = watchlistStore.items.find((item: any) => item.symbol === symbol);
-    if (watchlistItem) {
-      return watchlistItem.symbol_name;
+    const { data: watchlistData } = await supabase
+      .from('watchlist')
+      .select('symbol_name')
+      .eq('symbol', symbol)
+      .maybeSingle();
+
+    if (watchlistData) {
+      return watchlistData.symbol_name;
     }
 
     // 종목명을 찾지 못하면 종목코드 반환
@@ -436,12 +443,23 @@ class MonitoringService {
         return;
       }
 
-      // 사용자의 관심 종목 확인
-      const portfolioStore = usePortfolioStore.getState();
-      const watchlistStore = useWatchlistStore.getState();
-      const portfolioSymbols = portfolioStore.items.map((item: any) => item.symbol);
-      const watchlistSymbols = watchlistStore.items.map((item: any) => item.symbol);
+      // 사용자의 관심 종목 확인 (Supabase에서 직접 조회)
+      const { data: portfolioData } = await supabase
+        .from('portfolios')
+        .select('symbol')
+        .eq('user_id', this.userId);
+
+      const { data: watchlistData } = await supabase
+        .from('watchlist')
+        .select('symbol')
+        .eq('user_id', this.userId);
+
+      const portfolioSymbols = (portfolioData || []).map((item: any) => item.symbol);
+      const watchlistSymbols = (watchlistData || []).map((item: any) => item.symbol);
       const userSymbols = new Set([...portfolioSymbols, ...watchlistSymbols]);
+
+      console.log('[Monitoring] 사용자 종목:', Array.from(userSymbols));
+      console.log('[Monitoring] 뉴스 관련 종목:', news.related_symbols);
 
       // 관련 종목 체크
       const isRelated = news.related_symbols.some((symbol: string) => userSymbols.has(symbol));
@@ -458,7 +476,7 @@ class MonitoringService {
 
       // 종목명 해석 (종목코드 대신 종목명 사용!)
       const primarySymbol = news.related_symbols[0] || '';
-      const symbolName = this.getStockName(primarySymbol);
+      const symbolName = await this.getStockName(primarySymbol);
       const isOwned = portfolioSymbols.includes(primarySymbol);
 
       // 알림 생성 (모든 메타데이터 포함)
