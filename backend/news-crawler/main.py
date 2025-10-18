@@ -62,14 +62,14 @@ async def get_top_stocks(limit: int = 50) -> list:
     """시가총액 기준 상위 종목 조회"""
     try:
         result = supabase.table("stock_master") \
-            .select("symbol, symbol_name, market_cap") \
+            .select("symbol, name, market_cap") \
             .order("market_cap", desc=True) \
             .limit(limit) \
             .execute()
 
         if result.data:
             print(f"📊 상위 {len(result.data)}개 종목 조회 완료")
-            return [{"symbol": item["symbol"], "name": item["symbol_name"]} for item in result.data]
+            return [{"symbol": item["symbol"], "name": item["name"]} for item in result.data]
         else:
             print("⚠️ stock_master 테이블에서 종목을 찾을 수 없습니다. 기본 종목 사용")
             return [
