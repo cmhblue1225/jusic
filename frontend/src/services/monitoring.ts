@@ -379,7 +379,7 @@ class MonitoringService {
       .eq('symbol', symbol)
       .maybeSingle();
 
-    if (portfolioData) {
+    if (portfolioData?.symbol_name) {
       return portfolioData.symbol_name;
     }
 
@@ -390,8 +390,20 @@ class MonitoringService {
       .eq('symbol', symbol)
       .maybeSingle();
 
-    if (watchlistData) {
+    if (watchlistData?.symbol_name) {
       return watchlistData.symbol_name;
+    }
+
+    // stock_master 테이블에서 찾기 (가장 신뢰할 수 있는 소스)
+    const { data: stockMasterData } = await supabase
+      .from('stock_master')
+      .select('name')
+      .eq('symbol', symbol)
+      .maybeSingle();
+
+    if (stockMasterData?.name) {
+      console.log(`[Monitoring] stock_master에서 종목명 조회: ${symbol} -> ${stockMasterData.name}`);
+      return stockMasterData.name;
     }
 
     // 종목명을 찾지 못하면 종목코드 반환
