@@ -47,7 +47,6 @@ class TTSService {
   private synth: SpeechSynthesis;
   private isSpeaking: boolean = false;
   private queue: TTSQueueItem[] = [];
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
   private isProcessingQueue: boolean = false;
 
   constructor() {
@@ -174,19 +173,16 @@ class TTSService {
 
       utterance.onend = () => {
         this.isSpeaking = false;
-        this.currentUtterance = null;
         console.log(`[TTS] 재생 완료: "${text}"`);
         resolve();
       };
 
       utterance.onerror = (event) => {
         this.isSpeaking = false;
-        this.currentUtterance = null;
         console.error(`[TTS] 재생 오류:`, event);
         reject(event);
       };
 
-      this.currentUtterance = utterance;
       this.synth.speak(utterance);
     });
   }
@@ -200,7 +196,6 @@ class TTSService {
       this.queue = [];
       this.isSpeaking = false;
       this.isProcessingQueue = false;
-      this.currentUtterance = null;
       console.log('[TTS] 재생 중지 및 큐 초기화');
     }
   }

@@ -33,7 +33,7 @@ interface PortfolioState {
   getPortfolioStats: () => ProfitData;
 }
 
-export const usePortfolioStore = create<PortfolioState>((set) => ({
+export const usePortfolioStore = create<PortfolioState>((set): PortfolioState => ({
   items: [],
   loading: false,
   error: null,
@@ -202,8 +202,8 @@ export const usePortfolioStore = create<PortfolioState>((set) => ({
    * 포트폴리오 전체 통계 (Phase 2.2.1)
    * 총 투자금액, 총 평가금액, 총 손익, 수익률
    */
-  getPortfolioStats: () => {
-    const portfolioWithProfit = usePortfolioStore.getState().getPortfolioWithProfit();
+  getPortfolioStats: (): ProfitData => {
+    const portfolioWithProfit: PortfolioWithProfit[] = usePortfolioStore.getState().getPortfolioWithProfit();
     return calculatePortfolioStats(portfolioWithProfit);
   },
 }));

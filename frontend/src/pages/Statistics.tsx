@@ -39,7 +39,7 @@ export default function Statistics() {
   const navigate = useNavigate();
 
   // 실시간 시세 통합 (Phase 2.2.2)
-  const portfolioSymbols = useMemo(() => portfolioItems.map((item) => item.symbol), [portfolioItems]);
+  const portfolioSymbols = useMemo(() => portfolioItems.map((item: { symbol: string }) => item.symbol), [portfolioItems]);
   const { isConnected } = useRealtimePrice({
     autoConnect: true,
     autoSubscribe: true,
@@ -245,9 +245,9 @@ export default function Statistics() {
                   cx="50%"
                   cy="50%"
                   outerRadius={120}
-                  label={(entry: PortfolioWithProfit) => `${entry.symbol_name}: ${((entry.investment / portfolioStats.totalInvestment) * 100).toFixed(1)}%`}
+                  label={(entry: any) => `${entry.symbol_name}: ${((entry.investment / portfolioStats.totalInvestment) * 100).toFixed(1)}%`}
                 >
-                  {portfolioWithProfit.map((_entry, index) => (
+                  {portfolioWithProfit.map((_entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

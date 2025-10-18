@@ -5,6 +5,7 @@ import { usePortfolioStore } from '../stores/portfolioStore';
 import { useRealtimePrice } from '../hooks/useRealtimePrice';
 import { useInitialStockPrices } from '../hooks/useInitialStockPrices';
 import { usePriceStore, formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
+import type { PortfolioItem } from '../lib/profitCalculator';
 import StockAutocomplete from '../components/StockAutocomplete';
 
 export default function Portfolio() {
@@ -24,7 +25,7 @@ export default function Portfolio() {
   const navigate = useNavigate();
 
   // 실시간 시세 통합
-  const portfolioSymbols = useMemo(() => items.map((item) => item.symbol), [items]);
+  const portfolioSymbols = useMemo(() => items.map((item: PortfolioItem) => item.symbol), [items]);
   const { isConnected } = useRealtimePrice({
     autoConnect: true,
     autoSubscribe: true,

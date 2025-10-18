@@ -152,8 +152,8 @@ class MonitoringService {
     const watchlistStore = useWatchlistStore.getState();
 
     // 보유 종목 + 관심 종목 심볼 수집
-    const portfolioSymbols = portfolioStore.items.map((item) => item.symbol);
-    const watchlistSymbols = watchlistStore.items.map((item) => item.symbol);
+    const portfolioSymbols = portfolioStore.items.map((item: { symbol: string }) => item.symbol);
+    const watchlistSymbols = watchlistStore.items.map((item: { symbol: string }) => item.symbol);
     const allSymbols = [...new Set([...portfolioSymbols, ...watchlistSymbols])];
 
     allSymbols.forEach((symbol) => {
@@ -354,18 +354,13 @@ class MonitoringService {
           id: `news-${news.id}`,
           userId: this.userId,
           type: 'news',
+          severity: 'high',
           message: `[중요 뉴스] ${news.title}`,
           symbol: news.related_symbols[0] || '',
           symbolName: news.related_symbols[0] || '',
           timestamp: new Date().toISOString(),
+          isRead: false,
           isOwned,
-          metadata: {
-            newsId: news.id,
-            impactScore: news.impact_score,
-            sentimentScore: news.sentiment_score,
-            summary: news.summary,
-            recommendedAction: news.recommended_action,
-          },
         };
 
         // 알림 처리
