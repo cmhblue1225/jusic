@@ -6,7 +6,7 @@
 
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
-import { redisPubSub } from './redis-pubsub';
+import { redisPubSub } from './redis-pubsub.js';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
