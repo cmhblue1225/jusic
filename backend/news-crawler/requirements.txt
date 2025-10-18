@@ -1,11 +1,11 @@
 # News Crawler Dependencies
 fastapi==0.109.0
 uvicorn==0.27.0
-httpx<0.26,>=0.24
+httpx>=0.27.0,<1.0.0
 beautifulsoup4==4.12.3
 feedparser==6.0.10
 python-dotenv==1.0.0
-supabase==2.3.4
+supabase>=2.9.0,<3.0.0
 apscheduler==3.10.4
 pydantic==2.5.3
 
