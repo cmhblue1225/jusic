@@ -5,6 +5,7 @@
 import os
 from fastapi import FastAPI
 from apscheduler.schedulers.background import BackgroundScheduler
+import asyncio
 from dotenv import load_dotenv
 import httpx
 from datetime import datetime
@@ -178,14 +179,29 @@ async def crawl_news():
     print(f"📈 통계: 신규 {new_count}개, 중복 {duplicate_count}개\n")
 
 
+def crawl_news_sync():
+    """동기 wrapper 함수 - 스케줄러에서 호출"""
+    # 새 이벤트 루프 생성 및 실행
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(crawl_news())
+    finally:
+        loop.close()
+
+
 @app.on_event("startup")
 async def startup_event():
     """앱 시작 시 스케줄러 실행"""
     scheduler = BackgroundScheduler()
     # 5분마다 뉴스 크롤링
-    scheduler.add_job(crawl_news, 'interval', minutes=5)
+    scheduler.add_job(crawl_news_sync, 'interval', minutes=5)
     scheduler.start()
     print("📰 News Crawler Scheduler started (every 5 minutes)")
+
+    # 시작 시 즉시 한 번 실행
+    print("🚀 초기 크롤링 실행...")
+    asyncio.create_task(crawl_news())
 
 
 @app.get("/health")
