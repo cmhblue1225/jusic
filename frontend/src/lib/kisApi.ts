@@ -3,7 +3,7 @@
  * CORS 문제 해결을 위해 백엔드 API를 통해 KIS API 호출
  */
 
-const STREAM_SERVICE_URL = 'http://localhost:3001';
+const STREAM_SERVICE_URL = import.meta.env.VITE_STREAM_SERVICE_URL || 'http://localhost:3001';
 
 export interface StockQuote {
   symbol: string;
