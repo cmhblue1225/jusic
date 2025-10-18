@@ -239,7 +239,7 @@ export default function Statistics() {
             <ResponsiveContainer width="100%" height={400}>
               <PieChart>
                 <Pie
-                  data={portfolioWithProfit}
+                  data={portfolioWithProfit as any}
                   dataKey="investment"
                   nameKey="symbol_name"
                   cx="50%"
