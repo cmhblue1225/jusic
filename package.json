@@ -1,0 +1,36 @@
+{
+  "name": "trading-intelligence-platform",
+  "version": "1.0.0",
+  "description": "실시간 트레이딩 인텔리전스 플랫폼",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend/stream-service",
+    "backend/alert-service"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:stream\" \"npm run dev:alert\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:stream": "cd backend/stream-service && npm run dev",
+    "dev:alert": "cd backend/alert-service && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend/stream-service && npm run build && cd ../alert-service && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "trading",
+    "stock",
+    "real-time",
+    "ai",
+    "news-analysis"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.75.1"
+  }
+}

@@ -1,0 +1,14 @@
+# News Crawler Dependencies
+fastapi==0.109.0
+uvicorn==0.27.0
+httpx<0.26,>=0.24
+beautifulsoup4==4.12.3
+feedparser==6.0.10
+python-dotenv==1.0.0
+supabase==2.3.4
+apscheduler==3.10.4
+pydantic==2.5.3
+
+# NLP
+konlpy==0.6.0
+transformers==4.36.2
