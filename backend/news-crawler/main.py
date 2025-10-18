@@ -58,20 +58,46 @@ async def analyze_news_with_ai(title: str, content: str, symbols: list, url: str
         return None
 
 
-async def get_top_stocks(limit: int = 50) -> list:
-    """시가총액 기준 상위 종목 조회"""
+async def get_user_tracked_stocks() -> list:
+    """모든 사용자의 보유 종목 + 관심 종목 조회 (중복 제거)"""
     try:
-        result = supabase.table("stock_master") \
-            .select("symbol, name, market_cap") \
-            .order("market_cap", desc=True) \
-            .limit(limit) \
+        # 1. 보유 종목 조회
+        portfolio_result = supabase.table("portfolios") \
+            .select("symbol") \
             .execute()
 
-        if result.data:
-            print(f"📊 상위 {len(result.data)}개 종목 조회 완료")
-            return [{"symbol": item["symbol"], "name": item["name"]} for item in result.data]
+        # 2. 관심 종목 조회
+        watchlist_result = supabase.table("watchlist") \
+            .select("symbol") \
+            .execute()
+
+        # 3. 종목 코드 합치고 중복 제거
+        portfolio_symbols = {item["symbol"] for item in (portfolio_result.data or [])}
+        watchlist_symbols = {item["symbol"] for item in (watchlist_result.data or [])}
+        all_symbols = portfolio_symbols | watchlist_symbols  # 집합 합집합 (중복 자동 제거)
+
+        if not all_symbols:
+            print("⚠️ 사용자의 보유/관심 종목이 없습니다. 기본 종목 사용")
+            return [
+                {"symbol": "005930", "name": "삼성전자"},
+                {"symbol": "000660", "name": "SK하이닉스"},
+                {"symbol": "035420", "name": "NAVER"},
+                {"symbol": "035720", "name": "카카오"},
+                {"symbol": "051910", "name": "LG화학"},
+            ]
+
+        # 4. stock_master에서 종목명 조회
+        symbols_list = list(all_symbols)
+        stock_master_result = supabase.table("stock_master") \
+            .select("symbol, name") \
+            .in_("symbol", symbols_list) \
+            .execute()
+
+        if stock_master_result.data:
+            print(f"📊 사용자 추적 종목 {len(stock_master_result.data)}개 조회 완료 (보유 {len(portfolio_symbols)}개 + 관심 {len(watchlist_symbols)}개)")
+            return [{"symbol": item["symbol"], "name": item["name"]} for item in stock_master_result.data]
         else:
-            print("⚠️ stock_master 테이블에서 종목을 찾을 수 없습니다. 기본 종목 사용")
+            print("⚠️ stock_master에서 종목 정보를 찾을 수 없습니다. 기본 종목 사용")
             return [
                 {"symbol": "005930", "name": "삼성전자"},
                 {"symbol": "000660", "name": "SK하이닉스"},
@@ -95,11 +121,11 @@ async def crawl_news():
     """네이버 API를 사용한 뉴스 크롤링"""
     print(f"[{datetime.now()}] 네이버 API 뉴스 크롤링 시작...")
 
-    # 1. 상위 종목 조회
-    top_stocks = await get_top_stocks(limit=50)
-    stock_names = [stock["name"] for stock in top_stocks]
+    # 1. 사용자 추적 종목 조회 (보유 + 관심)
+    tracked_stocks = await get_user_tracked_stocks()
+    stock_names = [stock["name"] for stock in tracked_stocks]
 
-    print(f"🎯 타겟 종목: {len(stock_names)}개")
+    print(f"🎯 사용자 추적 종목: {len(stock_names)}개")
 
     # 2. 네이버 API로 종목별 뉴스 검색 (종목당 5개)
     try:
