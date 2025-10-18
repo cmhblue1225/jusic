@@ -47,6 +47,12 @@ export interface Alert {
   timestamp: string;
   isRead: boolean;
   isOwned: boolean; // 보유 종목 여부
+  // 뉴스 관련 메타데이터 (Phase 2.3.3)
+  newsId?: string;
+  sentimentScore?: number; // -1 ~ 1
+  impactScore?: number; // 0 ~ 1
+  recommendedAction?: string; // buy, sell, hold
+  summary?: string;
 }
 
 /**

@@ -7,6 +7,7 @@ import { useRealtimePrice } from '../hooks/useRealtimePrice';
 import { useInitialStockPrices } from '../hooks/useInitialStockPrices';
 import { usePriceStore, formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
 import { monitoringService } from '../services/monitoring';
+import ToastContainer from '../components/ToastContainer';
 
 interface StockSymbol {
   symbol: string;
@@ -275,6 +276,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* 토스트 알림 컨테이너 (Phase 2.4.3) */}
+      <ToastContainer />
     </div>
   );
 }

@@ -273,7 +273,7 @@ class TTSService {
         return this.generateVolumeMessage(symbolName, isOwned);
 
       case 'news':
-        return this.generateNewsMessage(symbolName, isOwned);
+        return this.generateNewsMessage(alert, portfolio);
 
       default:
         return `${symbolName} 알림이 발생했습니다.`;
@@ -320,11 +320,61 @@ class TTSService {
   }
 
   /**
-   * 뉴스 메시지 생성
+   * 뉴스 메시지 생성 (Phase 2.3.3 고도화)
+   * @param alert 알림 데이터 (뉴스 메타데이터 포함)
+   * @param portfolio 포트폴리오 데이터
    */
-  private generateNewsMessage(symbolName: string, isOwned: boolean): string {
+  private generateNewsMessage(alert: Alert, portfolio?: PortfolioWithProfit[]): string {
+    const { symbolName, isOwned, sentimentScore, impactScore, recommendedAction, summary } = alert;
+
     const prefix = isOwned ? '보유 종목' : '관심 종목';
-    return `${prefix} 알림. ${symbolName}에 중요한 뉴스가 발생했습니다.`;
+    let message = `${prefix} 중요 뉴스입니다. ${symbolName}에 대한 뉴스입니다. `;
+
+    // 감성 점수 텍스트 변환
+    if (sentimentScore !== undefined && sentimentScore !== null) {
+      const sentimentText = this.getSentimentText(sentimentScore);
+      message += `${sentimentText} 감정, `;
+    }
+
+    // 영향도
+    if (impactScore !== undefined && impactScore !== null) {
+      const impactPercent = Math.round(impactScore * 100);
+      message += `영향도 ${impactPercent}%, `;
+    }
+
+    // 권고 액션
+    if (recommendedAction) {
+      const actionText = this.getActionText(recommendedAction);
+      message += `${actionText}. `;
+    }
+
+    // 요약 (있으면 추가)
+    if (summary) {
+      message += summary;
+    }
+
+    return message;
+  }
+
+  /**
+   * 감성 점수를 텍스트로 변환
+   */
+  private getSentimentText(score: number): string {
+    if (score > 0.5) return '매우 긍정적';
+    if (score > 0.2) return '긍정적';
+    if (score > -0.2) return '중립';
+    if (score > -0.5) return '부정적';
+    return '매우 부정적';
+  }
+
+  /**
+   * 권고 액션을 텍스트로 변환
+   */
+  private getActionText(action: string): string {
+    if (action === 'buy') return '매수 권고';
+    if (action === 'sell') return '매도 권고';
+    if (action === 'hold') return '보유 권고';
+    return '대기';
   }
 
   /**

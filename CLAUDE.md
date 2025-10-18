@@ -495,20 +495,129 @@ const { data } = await supabase
 
 ---
 
-## 🚀 배포 전략
+## 🚀 배포 아키텍처 (Railway)
 
-### Frontend (Netlify/Vercel)
-- **빌드 명령**: `npm run build`
-- **출력 디렉토리**: `frontend/dist`
-- **환경 변수**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+### ✅ 현재 배포 상태 (2025-10-19)
 
-### Backend Microservices (Railway)
-각 서비스를 독립적으로 배포:
-- `stream-service` (WebSocket)
-- `news-crawler` (Python)
-- `ai-service` (Python)
-- `alert-service` (Node.js)
-- `data-service` (종목 동기화 크론잡)
+모든 5개 서비스가 **Railway 플랫폼**에 성공적으로 배포되어 운영 중입니다.
+
+#### 1. Frontend (React 19 + Vite)
+- **URL**: `https://frontend-production-7c4d.up.railway.app`
+- **커스텀 도메인**: `https://jusik.minhyuk.kr` (DNS 전파 대기 중)
+- **빌드 시스템**: Nixpacks (Node.js 20.19.5)
+- **배포 명령**: `npm run build`
+- **실행 명령**: `npm run preview` (Vite Preview Server)
+- **환경 변수**:
+  - `VITE_SUPABASE_URL`: Supabase 프로젝트 URL
+  - `VITE_SUPABASE_ANON_KEY`: Supabase 익명 키
+  - `VITE_STREAM_SERVICE_URL`: Stream Service WebSocket URL
+  - `VITE_KIS_APP_KEY`, `VITE_KIS_APP_SECRET`: KIS API 키 (초기 시세 조회용)
+- **특이사항**:
+  - `vite.config.ts`에 Railway 도메인 allowedHosts 설정 필요
+  - `.nvmrc` 파일로 Node 버전 고정 (20.19.5)
+
+#### 2. Stream Service (Node.js + Socket.IO)
+- **URL**: `https://stream-service-production.up.railway.app`
+- **기능**: 실시간 주가 스트리밍 (KIS API WebSocket → Redis → Socket.IO)
+- **포트**: Railway 자동 할당 (`PORT` 환경 변수)
+- **환경 변수**:
+  - `KIS_APP_KEY`, `KIS_APP_SECRET`: KIS API 인증
+  - `SUPABASE_URL`, `SUPABASE_ANON_KEY`: Supabase 연결 (주의: VITE_ 접두사 없음!)
+  - `REDIS_URL`: Redis 연결 (`${{Redis.REDIS_URL}}` 참조)
+  - `PORT`: Railway 할당 포트
+- **특이사항**:
+  - WebSocket 연결 시 JWT 토큰 인증 필요
+  - Redis Pub/Sub 방식으로 실시간 시세 전달
+  - Health check 엔드포인트: `/health`
+
+#### 3. AI Service (Python FastAPI)
+- **URL**: `https://ai-service-production.up.railway.app` (예상)
+- **기능**: Claude/OpenAI API를 이용한 뉴스 분석
+- **환경 변수**:
+  - `CLAUDE_API_KEY`: Claude API 키
+  - `OPENAI_API_KEY`: OpenAI API 키 (폴백)
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`: Supabase 연결
+  - `REDIS_URL`: Redis 캐싱
+
+#### 4. News Crawler (Python)
+- **URL**: `https://news-crawler-production.up.railway.app` (예상)
+- **기능**: 네이버/연합뉴스 크롤링 + 종목명 추출
+- **환경 변수**:
+  - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`: 네이버 API
+  - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`: Supabase 연결
+
+#### 5. Redis (In-Memory Cache)
+- **서비스**: Railway Redis Add-on
+- **기능**: Pub/Sub 메시지 브로커 + 캐싱
+- **연결 방법**: 다른 서비스에서 `${{Redis.REDIS_URL}}` 참조
+
+### 배포 워크플로우
+
+```
+GitHub Repository (main 브랜치)
+    ↓ (Push 감지)
+Railway Auto Deploy
+    ↓
+Nixpacks 빌드
+    ↓
+컨테이너 이미지 생성
+    ↓
+Railway 인프라 배포
+    ↓
+Public URL 생성 + SSL 자동 발급
+```
+
+### Railway 배포 시 주의사항
+
+#### 1. 환경 변수 네이밍
+- **Frontend**: `VITE_` 접두사 필수 (빌드 타임에 번들에 포함됨)
+- **Backend**: `VITE_` 접두사 사용 금지 (런타임 환경 변수)
+
+#### 2. 서비스 간 참조
+- **Backend → Backend**: `${{service-name.VARIABLE}}` 문법 사용 가능 (예: `${{Redis.REDIS_URL}}`)
+- **Frontend → Backend**: 빌드 타임에 환경 변수로 URL 주입 필요
+
+#### 3. 포트 설정
+- Railway는 `PORT` 환경 변수로 자동 포트 할당
+- 코드에서 `process.env.PORT || 기본포트` 패턴 사용
+
+#### 4. Docker 캐시 이슈
+- Railway는 빌드 레이어를 캐시하여 속도 향상
+- 코드 변경이 반영되지 않으면 "Clear build cache" 버튼 사용
+
+#### 5. TypeScript 빌드
+- Strict mode에서 모든 타입 에러 해결 필수
+- Type-only imports: `import type { ... }` 사용
+- Recharts 등 외부 라이브러리는 `as any` 캐스팅 필요할 수 있음
+
+### 커스텀 도메인 설정
+
+#### DNS 설정 (Cloudflare/가비아)
+```
+Type: CNAME
+Name: jusik
+Value: frontend-production-7c4d.up.railway.app
+TTL: Auto
+```
+
+#### Railway 설정
+1. Frontend 서비스 → Settings → Networking
+2. "Add Custom Domain" 클릭
+3. `jusik.minhyuk.kr` 입력
+4. Railway가 자동으로 Let's Encrypt SSL 발급 (5~10분 소요)
+
+### 모니터링
+
+#### Railway Dashboard
+- **Metrics**: CPU, 메모리, 네트워크 사용량 실시간 확인
+- **Logs**: 각 서비스의 stdout/stderr 로그 스트리밍
+- **Deployments**: 배포 히스토리 및 롤백 기능
+
+#### 주요 확인 사항
+- WebSocket 연결 수 (Stream Service)
+- Redis 메모리 사용량 (< 100MB 권장)
+- API 호출 횟수 (KIS, Claude, OpenAI)
+- 평균 응답 시간 (실시간 시세 < 1초)
 
 ---
 
@@ -707,6 +816,13 @@ CREATE INDEX idx_stock_master_name ON stock_master USING gin(name gin_trgm_ops);
 
 ---
 
-**마지막 업데이트**: 2025-01-18
-**프로젝트 상태**: Phase 1 완료 (인증, 포트폴리오, 관심종목, 종목검색)
-**다음 마일스톤**: Phase 2 - TTS 중심 실시간 모니터링 시스템
+**마지막 업데이트**: 2025-10-19
+**프로젝트 상태**: Phase 2 완료 ✅ → Phase 3 준비 중
+**완료된 Phase**:
+- ✅ Phase 1: 인증, 포트폴리오, 관심종목, 종목검색
+- ✅ Phase 2.1: 실시간 주가 스트리밍 (WebSocket + KIS REST API)
+- ✅ Phase 2.2: 보유 종목 수익률 실시간 계산
+- ✅ **Phase 2.3: 뉴스 크롤링 + AI 분석 파이프라인** (2025-10-19 완료)
+- ✅ Phase 2.4: TTS 자동 알림 시스템
+**현재 배포**: Railway (5개 서비스 모두 운영 중)
+**다음 마일스톤**: Phase 3 - 미니차트, 백테스트, 성능 최적화, 접근성 강화

@@ -13,6 +13,7 @@ export default function News() {
   const { ttsConfig } = useAlertStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'impact'>('date'); // 정렬 기준
 
   // 뉴스 로드
   useEffect(() => {
@@ -77,6 +78,19 @@ export default function News() {
     );
   });
 
+  // 정렬 (Phase 2.3.3)
+  const sortedNews = [...filteredNews].sort((a, b) => {
+    if (sortBy === 'date') {
+      // 최신순 정렬
+      return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+    } else {
+      // 영향도순 정렬 (impact_score가 null인 경우 0으로 처리)
+      const impactA = a.impact_score ?? 0;
+      const impactB = b.impact_score ?? 0;
+      return impactB - impactA;
+    }
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       {/* 헤더 */}
@@ -131,6 +145,33 @@ export default function News() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input w-full"
               />
+            </div>
+
+            {/* 정렬 옵션 (Phase 2.3.3) */}
+            <div className="mb-4">
+              <div className="text-sm text-gray-600 mb-2">정렬:</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSortBy('date')}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    sortBy === 'date'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  📅 최신순
+                </button>
+                <button
+                  onClick={() => setSortBy('impact')}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    sortBy === 'impact'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🔥 영향도순
+                </button>
+              </div>
             </div>
 
             {/* 관심 종목 필터 */}
@@ -199,7 +240,7 @@ export default function News() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-lg text-gray-600">로딩 중...</p>
             </div>
-          ) : filteredNews.length === 0 ? (
+          ) : sortedNews.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-xl text-gray-600">
                 {searchTerm || selectedSymbol ? '검색 결과가 없습니다.' : '뉴스가 없습니다.'}
@@ -210,7 +251,7 @@ export default function News() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredNews.map((newsItem) => (
+              {sortedNews.map((newsItem) => (
                 <NewsCard key={newsItem.id} news={newsItem} onReadAloud={handleReadAloud} />
               ))}
             </div>
