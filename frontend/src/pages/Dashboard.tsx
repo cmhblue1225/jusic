@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [userSymbols, setUserSymbols] = useState<string[]>([]);
   const [stockNames, setStockNames] = useState<Map<string, string>>(new Map());
+  const [showAllStocks, setShowAllStocks] = useState(false);
 
   const { getPrice } = usePriceStore();
   const { isConnected, subscribedSymbols } = useRealtimePrice({
@@ -152,7 +153,7 @@ export default function Dashboard() {
                 )}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userSymbols.slice(0, 6).map((symbol) => {
+                {(showAllStocks ? userSymbols : userSymbols.slice(0, 6)).map((symbol) => {
                   const priceData = getPrice(symbol);
                   const stockName = stockNames.get(symbol) || symbol;
 
@@ -194,39 +195,19 @@ export default function Dashboard() {
                 })}
               </div>
               {userSymbols.length > 6 && (
-                <div className="mt-4 text-center text-sm text-gray-500">
-                  외 {userSymbols.length - 6}개 종목
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => setShowAllStocks(!showAllStocks)}
+                    className="px-6 py-2 bg-white text-indigo-600 rounded-lg shadow-sm hover:shadow-md transition-all font-medium"
+                  >
+                    {showAllStocks ? '접기 ▲' : `더보기 ▼ (${userSymbols.length - 6}개 종목)`}
+                  </button>
                 </div>
               )}
             </div>
           )}
 
-          <div className="space-y-4">
-            <div className="text-left bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-bold text-lg mb-2">🎯 개발 현황</h3>
-              <ul className="space-y-2 text-gray-700">
-                <li>✅ Supabase 데이터베이스 연결 완료</li>
-                <li>✅ 한국투자증권 API 연동 완료</li>
-                <li>✅ 프론트엔드 개발 서버 실행 중</li>
-                <li>✅ 인증 시스템 구현 완료</li>
-                <li>✅ 프로필 관리 구현 완료</li>
-                <li>✅ 포트폴리오 관리 구현 완료</li>
-                <li>✅ 관심 종목 관리 구현 완료</li>
-                <li>✅ 수익률 통계 구현 완료</li>
-                <li>✅ Phase 1 완료! 🎉</li>
-                <li className="pt-2 border-t border-gray-300">
-                  <span className="font-semibold">🚀 Phase 2 진행 중:</span>
-                </li>
-                <li>✅ Stream Service 백엔드 구현 완료</li>
-                <li>✅ KIS WebSocket 연동 완료</li>
-                <li>✅ Redis Pub/Sub 구현 완료</li>
-                <li>✅ Socket.IO 서버 구현 완료</li>
-                <li>✅ 프론트엔드 WebSocket 통합 완료</li>
-                <li>✅ 실시간 시세 표시 (Dashboard) 🎊</li>
-              </ul>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <button onClick={() => navigate('/portfolio')} className="btn btn-primary">
                 💼 보유 종목 관리
               </button>
