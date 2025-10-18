@@ -24,6 +24,8 @@ export default function Profile() {
   // Phase 2.4: 알림 설정 (Alert Rules)
   const [priceChangeEnabled, setPriceChangeEnabled] = useState(true);
   const [priceChangeThreshold, setPriceChangeThreshold] = useState(3.0);
+  const [newsEnabled, setNewsEnabled] = useState(true);
+  const [newsThreshold, setNewsThreshold] = useState(0.7);
   const [volumeEnabled, setVolumeEnabled] = useState(true);
   const [volumeThreshold, setVolumeThreshold] = useState(2.0);
   const [marketHoursOnly, setMarketHoursOnly] = useState(true);
@@ -53,6 +55,8 @@ export default function Profile() {
   useEffect(() => {
     setPriceChangeEnabled(alertSettings.priceChangeEnabled);
     setPriceChangeThreshold(alertSettings.priceChangeThreshold);
+    setNewsEnabled(alertSettings.newsEnabled);
+    setNewsThreshold(alertSettings.newsThreshold);
     setVolumeEnabled(alertSettings.volumeEnabled);
     setVolumeThreshold(alertSettings.volumeThreshold);
     setMarketHoursOnly(alertSettings.marketHoursOnly);
@@ -103,8 +107,8 @@ export default function Profile() {
     updateAlertSettings({
       priceChangeEnabled,
       priceChangeThreshold,
-      newsEnabled: false, // Phase 2.3 완성 후 활성화
-      newsThreshold: 0.7,
+      newsEnabled,
+      newsThreshold,
       volumeEnabled,
       volumeThreshold,
       marketHoursOnly,
@@ -348,6 +352,40 @@ export default function Profile() {
                 />
                 <p className="text-sm text-gray-600 mt-1">
                   평균 거래량의 이 배수 이상일 때 알림을 받습니다
+                </p>
+              </div>
+            </div>
+
+            {/* 뉴스 알림 (Phase 2.4.3) */}
+            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="news-enabled"
+                  checked={newsEnabled}
+                  onChange={(e) => setNewsEnabled(e.target.checked)}
+                  className="w-6 h-6 mr-3"
+                />
+                <label htmlFor="news-enabled" className="text-lg font-medium">
+                  📰 뉴스 알림
+                </label>
+              </div>
+              <div>
+                <label className="block text-lg font-medium text-gray-700 mb-2">
+                  뉴스 영향도 임계값: {Math.round(newsThreshold * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1.0"
+                  step="0.05"
+                  value={newsThreshold}
+                  onChange={(e) => setNewsThreshold(parseFloat(e.target.value))}
+                  disabled={!newsEnabled}
+                  className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  AI가 분석한 뉴스 영향도가 이 값 이상일 때 알림을 받습니다
                 </p>
               </div>
             </div>
