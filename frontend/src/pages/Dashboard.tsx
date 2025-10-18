@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { useAlertStore } from '../stores/alertStore';
 import { supabase } from '../lib/supabase';
 import { useRealtimePrice } from '../hooks/useRealtimePrice';
 import { useInitialStockPrices } from '../hooks/useInitialStockPrices';
 import { usePriceStore, formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
-import { monitoringService } from '../services/monitoring';
-import ToastContainer from '../components/ToastContainer';
 
 interface StockSymbol {
   symbol: string;
@@ -16,7 +13,6 @@ interface StockSymbol {
 
 export default function Dashboard() {
   const { user, signOut } = useAuthStore();
-  const { alertSettings, ttsConfig, addAlert } = useAlertStore();
   const navigate = useNavigate();
   const [newsCount, setNewsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -74,35 +70,6 @@ export default function Dashboard() {
 
     fetchUserStocks();
   }, [user]);
-
-  // Phase 2.4: 모니터링 서비스 자동 시작/중지
-  useEffect(() => {
-    if (!user || !ttsConfig.enabled) {
-      // TTS가 비활성화되어 있거나 사용자가 없으면 모니터링 중지
-      if (monitoringService.isRunning()) {
-        monitoringService.stop();
-      }
-      return;
-    }
-
-    // 모니터링 서비스 시작
-    console.log('[Dashboard] 모니터링 서비스 시작');
-    monitoringService.start(
-      user.id,
-      alertSettings,
-      ttsConfig,
-      (alert) => {
-        console.log('[Dashboard] 알림 수신:', alert);
-        addAlert(alert);
-      }
-    );
-
-    // 언마운트 시 또는 의존성 변경 시 중지
-    return () => {
-      console.log('[Dashboard] 모니터링 서비스 중지');
-      monitoringService.stop();
-    };
-  }, [user, ttsConfig.enabled, alertSettings, ttsConfig, addAlert]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -276,9 +243,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* 토스트 알림 컨테이너 (Phase 2.4.3) */}
-      <ToastContainer />
     </div>
   );
 }
