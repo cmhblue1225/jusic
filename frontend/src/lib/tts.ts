@@ -305,7 +305,6 @@ class TTSService {
 
     if (isOwned && ownedStock) {
       // 보유 종목: 수익률 포함
-      const profitRate = ownedStock.profitRate.toFixed(2);
       const profitDirection = ownedStock.profitRate > 0 ? '수익' : '손실';
 
       return `보유 종목 알림. ${symbolName}이 ${absChangeRate} 퍼센트 ${direction}했습니다. 현재가 ${priceStr}원, ${profitDirection}률 ${Math.abs(

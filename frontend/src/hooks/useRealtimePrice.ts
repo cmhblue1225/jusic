@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import { socketService } from '../lib/socket';
-import { usePriceStore, type RealtimeStockData } from '../stores/priceStore';
+import { usePriceStore } from '../stores/priceStore';
 import { useAuthStore } from '../stores/authStore';
 
 export interface UseRealtimePriceOptions {

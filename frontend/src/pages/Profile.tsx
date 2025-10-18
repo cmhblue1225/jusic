@@ -9,7 +9,7 @@ import { ttsService } from '../lib/tts';
 export default function Profile() {
   const { user, signOut } = useAuthStore();
   const { profile, loading, error, fetchProfile, updateProfile, updateSettings, clearError } = useProfileStore();
-  const { alertSettings, ttsConfig, updateAlertSettings, updateTTSConfig } = useAlertStore();
+  const { alertSettings, updateAlertSettings, updateTTSConfig } = useAlertStore();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');

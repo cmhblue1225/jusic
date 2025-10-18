@@ -26,8 +26,8 @@ class MonitoringService {
   private static instance: MonitoringService;
   private userId: string | null = null;
   private isMonitoring: boolean = false;
-  private priceCheckInterval: NodeJS.Timeout | null = null;
-  private newsCheckInterval: NodeJS.Timeout | null = null;
+  private priceCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private newsCheckInterval: ReturnType<typeof setInterval> | null = null;
   private previousPrices: Map<string, number> = new Map(); // symbol → 이전 가격
   private processedNewsIds: Set<string> = new Set(); // 처리된 뉴스 ID
   private recentAlerts: Alert[] = []; // 최근 알림 (중복 방지용)
@@ -177,7 +177,7 @@ class MonitoringService {
     const watchlistStore = useWatchlistStore.getState();
 
     // 보유 종목 체크
-    portfolioStore.items.forEach((item) => {
+    portfolioStore.items.forEach((item: { symbol: string; symbol_name: string; qty: number; avg_price: number }) => {
       const currentPriceData = priceStore.getPrice(item.symbol);
       if (!currentPriceData) return;
 
@@ -320,8 +320,8 @@ class MonitoringService {
       const watchlistStore = useWatchlistStore.getState();
 
       // 사용자의 관심 종목 코드 수집
-      const portfolioSymbols = portfolioStore.items.map((item) => item.symbol);
-      const watchlistSymbols = watchlistStore.items.map((item) => item.symbol);
+      const portfolioSymbols = portfolioStore.items.map((item: { symbol: string }) => item.symbol);
+      const watchlistSymbols = watchlistStore.items.map((item: { symbol: string }) => item.symbol);
       const userSymbols = new Set([...portfolioSymbols, ...watchlistSymbols]);
 
       // 모든 뉴스에서 고영향도(impact_score > 0.7) 뉴스 필터링
@@ -349,6 +349,7 @@ class MonitoringService {
         this.processedNewsIds.add(news.id);
 
         // 알림 생성
+        const isOwned = portfolioSymbols.includes(news.related_symbols[0] || '');
         const alert: Alert = {
           id: `news-${news.id}`,
           userId: this.userId,
@@ -357,7 +358,7 @@ class MonitoringService {
           symbol: news.related_symbols[0] || '',
           symbolName: news.related_symbols[0] || '',
           timestamp: new Date().toISOString(),
-          isPortfolio: portfolioSymbols.includes(news.related_symbols[0] || ''),
+          isOwned,
           metadata: {
             newsId: news.id,
             impactScore: news.impact_score,

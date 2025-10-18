@@ -181,8 +181,8 @@ export const usePortfolioStore = create<PortfolioState>((set) => ({
    * 실시간 시세를 적용한 포트폴리오 조회 (Phase 2.2.1)
    * priceStore에서 실시간 시세를 가져와서 평가금액 및 수익률 계산
    */
-  getPortfolioWithProfit: () => {
-    const items = usePortfolioStore.getState().items;
+  getPortfolioWithProfit: (): PortfolioWithProfit[] => {
+    const items: PortfolioItem[] = usePortfolioStore.getState().items;
     const priceStore = usePriceStore.getState();
 
     // 현재가 Map 생성 (symbol → price)

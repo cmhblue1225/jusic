@@ -55,7 +55,7 @@ export default function News() {
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'ko-KR';
-      utterance.rate = ttsConfig.speed;
+      utterance.rate = ttsConfig.rate;
       utterance.volume = ttsConfig.volume;
       utterance.pitch = 1.0;
 

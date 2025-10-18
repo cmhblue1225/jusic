@@ -8,6 +8,7 @@ import {
   getProfitColor,
   formatProfitRate,
   formatCurrency,
+  type PortfolioWithProfit,
 } from '../lib/profitCalculator';
 import {
   BarChart,
@@ -175,7 +176,7 @@ export default function Statistics() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {portfolioWithProfit.map((stock) => (
+                  {portfolioWithProfit.map((stock: PortfolioWithProfit) => (
                     <tr key={stock.symbol} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <div className="font-bold text-lg">{stock.symbol_name}</div>
@@ -244,9 +245,9 @@ export default function Statistics() {
                   cx="50%"
                   cy="50%"
                   outerRadius={120}
-                  label={(entry) => `${entry.symbol_name}: ${((entry.investment / portfolioStats.totalInvestment) * 100).toFixed(1)}%`}
+                  label={(entry: PortfolioWithProfit) => `${entry.symbol_name}: ${((entry.investment / portfolioStats.totalInvestment) * 100).toFixed(1)}%`}
                 >
-                  {portfolioWithProfit.map((entry, index) => (
+                  {portfolioWithProfit.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

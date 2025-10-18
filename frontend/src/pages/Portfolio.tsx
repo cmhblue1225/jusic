@@ -163,7 +163,7 @@ export default function Portfolio() {
     }
   };
 
-  const startEdit = (item: any) => {
+  const startEdit = (item: PortfolioItem) => {
     setEditingId(item.id);
     setSymbol(item.symbol);
     setName(item.symbol_name);
