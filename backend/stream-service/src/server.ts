@@ -75,7 +75,7 @@ app.post('/api/stocks/prices', async (req, res) => {
 // Socket.IO 서버 초기화
 const streamServer = new StreamServer(httpServer);
 
-const PORT = process.env.STREAM_SERVICE_PORT || 3001;
+const PORT = process.env.PORT || process.env.STREAM_SERVICE_PORT || 3001;
 
 /**
  * 서버 시작
