@@ -11,9 +11,9 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],

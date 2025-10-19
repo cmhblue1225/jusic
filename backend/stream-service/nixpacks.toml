@@ -2,10 +2,10 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm ci --prefer-offline --no-audit --legacy-peer-deps']
+cmds = ['npm ci --prefer-offline --no-audit']
 
 [phases.build]
 cmds = ['npm run build']
 
 [start]
-cmd = 'npx serve dist -l $PORT'
+cmd = 'npm start'
