@@ -312,5 +312,7 @@ async def delete_bookmark(symbol: str, authorization: Optional[str] = Header(Non
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 3004))
+    # Railway/Render에서 제공하는 PORT 환경 변수 사용
+    port = int(os.getenv("PORT", "3004"))
+    print(f"🚀 Report Service starting on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

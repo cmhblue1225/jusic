@@ -20,5 +20,5 @@ COPY . .
 # 환경 변수
 ENV PORT=3004
 
-# 실행 명령
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+# 실행 명령 (Python으로 직접 실행)
+CMD ["python", "main.py"]
