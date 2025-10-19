@@ -207,7 +207,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <button onClick={() => navigate('/portfolio')} className="btn btn-primary">
               💼 보유 종목 관리
             </button>
@@ -217,8 +217,11 @@ export default function Dashboard() {
             <button onClick={() => navigate('/news')} className="btn btn-primary">
               📰 뉴스 센터
             </button>
+            <button onClick={() => navigate('/report')} className="btn btn-primary">
+              📊 AI 종목 레포트
+            </button>
             <button onClick={() => navigate('/statistics')} className="btn btn-primary">
-              📊 수익률 통계
+              📈 수익률 통계
             </button>
           </div>
         </div>

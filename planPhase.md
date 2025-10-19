@@ -316,6 +316,94 @@
 
 ## 🔜 Phase 3: 접근성, 차트, 성능 최적화 (2주)
 
+### 📍 Phase 3.5: 종목 레포트 기능 (4일) ⭐⭐⭐ **현재 진행 중!**
+
+#### 3.5.1 Backend: Report Service 구축 (2일)
+- [ ] `backend/report-service/` 디렉토리 생성
+  - [ ] `main.py` - FastAPI 서버
+  - [ ] `kis_data.py` - KIS API 1일 주가 데이터 조회
+  - [ ] `technical.py` - 기술적 지표 계산
+  - [ ] `ai_analyzer.py` - OpenAI GPT-4o-mini 종합 분석
+  - [ ] `cache.py` - Redis 캐싱 (장 마감 시간 기준 TTL)
+  - [ ] `requirements.txt` - 의존성
+  - [ ] `.env.example` - 환경 변수 템플릿
+- [ ] KIS API 연동
+  - [ ] 일봉/분봉 데이터 조회 API
+  - [ ] 토큰 관리 (기존 stream-service 패턴 재사용)
+- [ ] 기술적 지표 계산
+  - [ ] 이동평균선 (5일/20일/60일)
+  - [ ] 거래량 비율 (평균 대비 증감)
+  - [ ] 변동성 (표준편차)
+  - [ ] 볼린저 밴드 (상단/하단)
+- [ ] OpenAI GPT-4o-mini 분석
+  - [ ] 프롬프트 엔지니어링 (종목 정보 + 뉴스 요약)
+  - [ ] JSON 응답 파싱 (summary, risk_level, recommendation, evaluation_score)
+  - [ ] 에러 핸들링 (API 실패 시 폴백)
+- [ ] Redis 캐싱 전략
+  - [ ] 캐시 키: `report:{symbol}:{report_date}`
+  - [ ] TTL 계산 (장 마감 15:30 기준)
+  - [ ] 최소 TTL: 30분
+- [ ] Railway 배포
+  - [ ] Nixpacks 빌드 설정
+  - [ ] 환경 변수 설정
+  - [ ] Health check 엔드포인트
+
+#### 3.5.2 Database: stock_reports 테이블 (0.5일)
+- [ ] Supabase SQL Editor에서 테이블 생성
+  - [ ] 기본 컬럼 (id, user_id, symbol, symbol_name, report_date)
+  - [ ] 주가 데이터 컬럼 (current_price, change_rate, high, low, avg, volume)
+  - [ ] 기술적 지표 컬럼 (ma5, ma20, ma60, volume_ratio, volatility, bollinger_upper, bollinger_lower)
+  - [ ] AI 분석 컬럼 (summary, risk_level, recommendation, evaluation_score, ai_analysis jsonb)
+  - [ ] 관련 뉴스 (related_news_ids uuid[])
+  - [ ] 메타데이터 (is_bookmarked, created_at, updated_at)
+- [ ] 인덱스 생성
+  - [ ] `idx_stock_reports_user` ON user_id
+  - [ ] `idx_stock_reports_symbol` ON symbol
+  - [ ] `idx_stock_reports_date` ON report_date DESC
+- [ ] RLS 정책 설정
+  - [ ] SELECT: 자신의 레포트만 조회
+  - [ ] INSERT/UPDATE/DELETE: 자신의 레포트만 수정
+- [ ] UNIQUE 제약 조건: (user_id, symbol, report_date)
+
+#### 3.5.3 Frontend: Report 페이지 구현 (1.5일)
+- [ ] `frontend/src/stores/reportStore.ts` 생성
+  - [ ] 상태: report, loading, error
+  - [ ] 메서드: generateReport(), bookmarkReport(), getBookmarkedReports()
+  - [ ] Report Service API 호출
+- [ ] `frontend/src/lib/reportApi.ts` 생성
+  - [ ] generateReport(symbol, reportDate) - POST /api/report/generate
+  - [ ] saveReport(report) - POST /api/report/save
+  - [ ] getBookmarkedReports() - GET /api/report/bookmarked
+- [ ] `frontend/src/components/ReportCard.tsx` 생성
+  - [ ] 주가 정보 섹션 (4개 카드: 현재가, 등락률, 거래량, 평가점수)
+  - [ ] AI 분석 섹션 (요약, 권고 뱃지, 위험도 뱃지)
+  - [ ] 기술적 지표 섹션 (그리드 레이아웃)
+  - [ ] 관련 뉴스 섹션 (최대 10개, 링크 클릭 가능)
+  - [ ] 북마크 버튼 (⭐ / ☆)
+  - [ ] TailwindCSS 반응형 디자인
+- [ ] `frontend/src/pages/Report.tsx` 생성
+  - [ ] 헤더 (제목, 설명)
+  - [ ] 종목 선택 섹션 (StockAutocomplete 컴포넌트)
+  - [ ] 레포트 생성 버튼 (로딩 상태 표시)
+  - [ ] ReportCard 표시 영역
+  - [ ] 에러 핸들링 (Toast 알림)
+- [ ] `App.tsx` 라우팅 추가
+  - [ ] `/report` 경로 추가
+  - [ ] ProtectedRoute 래퍼
+- [ ] Dashboard 네비게이션 버튼 추가
+  - [ ] "📊 종목 레포트" 버튼
+
+**검증 기준**:
+- [ ] 레포트 생성 시간 ≤ 10초
+- [ ] 캐시 HIT 시 즉시 표시 (≤ 0.5초)
+- [ ] AI 분석 정확도 ≥ 85% (수동 검증)
+- [ ] 북마크 저장/조회 정상 작동
+- [ ] 모바일 반응형 UI (320px ~ 1920px)
+- [ ] TypeScript 컴파일 에러 없음
+- [ ] ESLint 경고 없음
+
+---
+
 ### 📍 Phase 3.4: 접근성 강화 (2일) ⭐⭐⭐ **최우선!**
 
 #### 3.4.1 고대비 모드 구현 (1일)

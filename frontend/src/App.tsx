@@ -12,6 +12,7 @@ import Portfolio from './pages/Portfolio';
 import Watchlist from './pages/Watchlist';
 import Statistics from './pages/Statistics';
 import News from './pages/News';
+import Report from './pages/Report';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -105,6 +106,14 @@ function App() {
           element={
             <ProtectedRoute>
               <News />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/report"
+          element={
+            <ProtectedRoute>
+              <Report />
             </ProtectedRoute>
           }
         />
