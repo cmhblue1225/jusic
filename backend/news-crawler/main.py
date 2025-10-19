@@ -149,12 +149,12 @@ async def crawl_news():
     duplicate_count = 0
     old_news_count = 0
 
-    # 24시간 이전 시간 계산
-    cutoff_time = datetime.now() - timedelta(hours=24)
+    # 7일 이전 시간 계산 (24시간 → 7일로 완화)
+    cutoff_time = datetime.now() - timedelta(days=7)
 
     for news_item in all_news:
         try:
-            # 발행 시간 체크 (24시간 이내만 처리)
+            # 발행 시간 체크 (7일 이내만 처리)
             published_at = datetime.fromisoformat(news_item["published_at"].replace('Z', '+00:00'))
             if published_at < cutoff_time:
                 old_news_count += 1
@@ -212,7 +212,7 @@ async def crawl_news():
             continue
 
     print(f"\n[{datetime.now()}] 네이버 API 뉴스 크롤링 완료")
-    print(f"📈 통계: 신규 {new_count}개, 중복 {duplicate_count}개, 24시간 이전 {old_news_count}개\n")
+    print(f"📈 통계: 신규 {new_count}개, 중복 {duplicate_count}개, 7일 이전 {old_news_count}개\n")
 
 
 def crawl_news_sync():
