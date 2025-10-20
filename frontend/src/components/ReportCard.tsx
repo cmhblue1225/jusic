@@ -385,14 +385,13 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
         )}
       </div>
 
-      {/* GPT-4 고급 분석 섹션 (신규) */}
-      {(report.investment_strategy || report.technical_analysis || report.fundamental_analysis) && (
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-6 rounded-lg border-2 border-slate-200">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-2xl">🤖</span>
-            <h3 className="text-xl font-bold text-slate-900">GPT-4 심화 분석</h3>
-            <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded-full font-medium">AI Premium</span>
-          </div>
+      {/* GPT-4 고급 분석 섹션 (신규) - 항상 표시 */}
+      <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-6 rounded-lg border-2 border-slate-200">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl">🤖</span>
+          <h3 className="text-xl font-bold text-slate-900">GPT-4 심화 분석</h3>
+          <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded-full font-medium">AI Premium</span>
+        </div>
 
           <div className="space-y-4">
             {/* 투자 전략 */}
@@ -467,7 +466,6 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
             )}
           </div>
         </div>
-      )}
 
       {/* 관련 뉴스 */}
       <div className="bg-yellow-50 p-4 rounded-lg">

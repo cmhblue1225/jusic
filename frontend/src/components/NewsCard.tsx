@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { NewsItem } from '../stores/newsStore';
+import { supabase } from '../lib/supabase';
 
 interface NewsCardProps {
   news: NewsItem;
@@ -9,6 +10,34 @@ interface NewsCardProps {
 
 export default function NewsCard({ news, onReadAloud, userSymbols = [] }: NewsCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [symbolNames, setSymbolNames] = useState<Record<string, string>>({});
+
+  // 종목 코드 → 종목 이름 매핑
+  useEffect(() => {
+    const fetchSymbolNames = async () => {
+      if (!news.related_symbols || news.related_symbols.length === 0) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('stock_master')
+          .select('symbol, name')
+          .in('symbol', news.related_symbols);
+
+        if (error) throw error;
+
+        // 종목 코드 → 종목 이름 매핑 객체 생성
+        const mapping: Record<string, string> = {};
+        data?.forEach((stock) => {
+          mapping[stock.symbol] = stock.name;
+        });
+        setSymbolNames(mapping);
+      } catch (error) {
+        console.error('[NewsCard] 종목 이름 조회 실패:', error);
+      }
+    };
+
+    fetchSymbolNames();
+  }, [news.related_symbols]);
 
   // 감성 점수 색상 결정
   const getSentimentColor = (score: number | null) => {
@@ -145,6 +174,7 @@ export default function NewsCard({ news, onReadAloud, userSymbols = [] }: NewsCa
           <div className="flex flex-wrap gap-2">
             {news.related_symbols.map((symbol) => {
               const isUserSymbol = userSymbols.includes(symbol);
+              const symbolName = symbolNames[symbol] || symbol; // 종목 이름 또는 코드
               return (
                 <span
                   key={symbol}
@@ -153,10 +183,10 @@ export default function NewsCard({ news, onReadAloud, userSymbols = [] }: NewsCa
                       ? 'bg-green-100 text-green-800 border-2 border-green-400 font-bold' // 사용자 종목: 강조
                       : 'bg-gray-100 text-gray-600' // 기타 종목: 회색
                   }`}
-                  title={isUserSymbol ? '내 종목' : '기타 종목'}
+                  title={isUserSymbol ? `내 종목: ${symbol}` : `기타 종목: ${symbol}`}
                 >
                   {isUserSymbol && '⭐ '}
-                  {symbol}
+                  {symbolName}
                 </span>
               );
             })}
