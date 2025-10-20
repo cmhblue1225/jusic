@@ -45,7 +45,9 @@ try:
         get_institutional_flow_estimate,
         get_index_price,
         # 🔥 Phase 4.1: 업종 상대 평가
-        get_sector_relative_analysis
+        get_sector_relative_analysis,
+        # 🔥 Phase 4.2: 시장 전체 맥락 분석
+        get_market_context
     )
     print("  ✅ kis_data 모듈 (7개 신규 API 포함)")
     from technical import calculate_all_indicators
@@ -417,6 +419,25 @@ async def generate_report(
                     "sample_size": 0
                 }
 
+        # 🔥 Phase 4.2: 시장 전체 맥락 분석
+        market_context = {}
+        try:
+            market_context = await rate_limited_kis_request(get_market_context)
+            print(f"✅ 시장 맥락: {market_context.get('market_trend', 'N/A').upper()} (심리: {market_context.get('market_sentiment', 'N/A')})")
+        except Exception as e:
+            print(f"⚠️ 시장 맥락 분석 실패: {str(e)}")
+            market_context = {
+                "market_trend": "neutral",
+                "market_strength": 50,
+                "market_sentiment": "데이터 부족",
+                "kospi": {"value": 0, "change_rate": 0, "momentum": "N/A"},
+                "kosdaq": {"value": 0, "change_rate": 0, "momentum": "N/A"},
+                "volatility_level": "medium",
+                "volatility_value": 0,
+                "market_breadth": "neutral",
+                "market_breadth_pct": 50
+            }
+
         print(f"✅ 데이터 조회 완료 (병렬 처리)")
         print(f"   - 뉴스: {len(news_data)}개")
         print(f"   - 고급 데이터: {'✅' if advanced_data else '❌'}")
@@ -445,7 +466,8 @@ async def generate_report(
                 short_selling=short_selling,
                 program_trading=program_trading,
                 institutional_flow=institutional_flow,
-                sector_relative=sector_relative  # 🔥 Phase 4.1: 업종 상대 평가
+                sector_relative=sector_relative,  # 🔥 Phase 4.1: 업종 상대 평가
+                market_context=market_context  # 🔥 Phase 4.2: 시장 전체 맥락
             )
         else:
             # 폴백: 단일 모델 (GPT-4)
@@ -577,6 +599,18 @@ async def generate_report(
             "market_index": {
                 "kospi_value": kospi_index.get("index_value", 0),
                 "kospi_change_rate": kospi_index.get("change_rate", 0)
+            },
+            # 🔥 Phase 4.2: 시장 전체 맥락
+            "market_context": {
+                "market_trend": market_context.get("market_trend", "neutral"),
+                "market_strength": market_context.get("market_strength", 50),
+                "market_sentiment": market_context.get("market_sentiment", "N/A"),
+                "kospi": market_context.get("kospi", {}),
+                "kosdaq": market_context.get("kosdaq", {}),
+                "volatility_level": market_context.get("volatility_level", "medium"),
+                "volatility_value": market_context.get("volatility_value", 0),
+                "market_breadth": market_context.get("market_breadth", "neutral"),
+                "market_breadth_pct": market_context.get("market_breadth_pct", 50)
             },
 
             # 메타데이터

@@ -170,12 +170,14 @@ async def analyze_with_gpt4(
     short_selling: List[Dict] = None,        # 🔥 Phase 1.3
     program_trading: List[Dict] = None,      # 🔥 Phase 1.3
     institutional_flow: Dict[str, Any] = None,  # 🔥 Phase 1.3
-    sector_relative: Dict[str, Any] = None   # 🔥 Phase 4.1: 업종 상대 평가
+    sector_relative: Dict[str, Any] = None,  # 🔥 Phase 4.1: 업종 상대 평가
+    market_context: Dict[str, Any] = None    # 🔥 Phase 4.2: 시장 전체 맥락
 ) -> Optional[Dict[str, Any]]:
     """
     🔥 Phase 1.3 개선: GPT-4 Turbo 기반 종목 분석 (뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
     🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
     🔥 Phase 4.1 개선: 업종 상대 평가 추가
+    🔥 Phase 4.2 개선: 시장 전체 맥락 반영
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
@@ -303,6 +305,33 @@ async def analyze_with_gpt4(
   - 상대 강도: {relative_strength_val:.2f} ({strength_label})
   - 초과 수익률: {outperformance:+.2f}% ({performance_label})
   - 업종 내 순위: 상위 {sector_relative.get('sector_rank_pct', 50):.0f}%
+"""
+
+    # 🔥 Phase 4.2: 시장 전체 맥락 텍스트 생성
+    market_context = market_context or {}
+    market_context_text = ""
+    if market_context.get("market_trend"):
+        market_trend = market_context.get("market_trend", "neutral")
+        market_strength = market_context.get("market_strength", 50)
+        market_sentiment = market_context.get("market_sentiment", "N/A")
+        volatility_level = market_context.get("volatility_level", "medium")
+        market_breadth = market_context.get("market_breadth", "neutral")
+        breadth_pct = market_context.get("market_breadth_pct", 50)
+
+        kospi = market_context.get("kospi", {})
+        kosdaq = market_context.get("kosdaq", {})
+
+        trend_emoji = "📈" if market_trend == "bullish" else "📉" if market_trend == "bearish" else "➡️"
+        volatility_emoji = "⚠️" if volatility_level == "high" else "✅" if volatility_level == "low" else "ℹ️"
+
+        market_context_text = f"""
+{trend_emoji} 시장 전체 맥락:
+  - 시장 추세: {market_trend.upper()} (강도: {market_strength:.1f}/100)
+  - 시장 심리: {market_sentiment}
+  - 코스피: {kospi.get('value', 0):.2f} ({kospi.get('change_rate', 0):+.2f}%) - {kospi.get('momentum', 'N/A')}
+  - 코스닥: {kosdaq.get('value', 0):.2f} ({kosdaq.get('change_rate', 0):+.2f}%) - {kosdaq.get('momentum', 'N/A')}
+  - {volatility_emoji} 변동성: {volatility_level.upper()}
+  - 시장 폭: {market_breadth} (상승 종목 비율 약 {breadth_pct}%)
 """
 
     # 🔥 Phase 1.3: 시장 지수 비교 텍스트 생성
@@ -524,12 +553,14 @@ async def analyze_with_claude(
     short_selling: List[Dict] = None,        # 🔥 Phase 1.3
     program_trading: List[Dict] = None,      # 🔥 Phase 1.3
     institutional_flow: Dict[str, Any] = None,  # 🔥 Phase 1.3
-    sector_relative: Dict[str, Any] = None   # 🔥 Phase 4.1: 업종 상대 평가
+    sector_relative: Dict[str, Any] = None,  # 🔥 Phase 4.1: 업종 상대 평가
+    market_context: Dict[str, Any] = None    # 🔥 Phase 4.2: 시장 전체 맥락
 ) -> Optional[Dict[str, Any]]:
     """
     🔥 Phase 1.3 개선: Claude 3.5 Sonnet 기반 종목 분석 (리스크 분석 전문가, 뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
     🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
     🔥 Phase 4.1 개선: 업종 상대 평가 추가
+    🔥 Phase 4.2 개선: 시장 전체 맥락 반영
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
@@ -656,6 +687,33 @@ async def analyze_with_claude(
   - 상대 강도: {relative_strength_val:.2f} ({strength_label})
   - 초과 수익률: {outperformance:+.2f}% ({performance_label})
   - 업종 내 순위: 상위 {sector_relative.get('sector_rank_pct', 50):.0f}%
+"""
+
+    # 🔥 Phase 4.2: 시장 전체 맥락 텍스트 생성
+    market_context = market_context or {}
+    market_context_text = ""
+    if market_context.get("market_trend"):
+        market_trend = market_context.get("market_trend", "neutral")
+        market_strength = market_context.get("market_strength", 50)
+        market_sentiment = market_context.get("market_sentiment", "N/A")
+        volatility_level = market_context.get("volatility_level", "medium")
+        market_breadth = market_context.get("market_breadth", "neutral")
+        breadth_pct = market_context.get("market_breadth_pct", 50)
+
+        kospi = market_context.get("kospi", {})
+        kosdaq = market_context.get("kosdaq", {})
+
+        trend_emoji = "📈" if market_trend == "bullish" else "📉" if market_trend == "bearish" else "➡️"
+        volatility_emoji = "⚠️" if volatility_level == "high" else "✅" if volatility_level == "low" else "ℹ️"
+
+        market_context_text = f"""
+{trend_emoji} 시장 전체 맥락:
+  - 시장 추세: {market_trend.upper()} (강도: {market_strength:.1f}/100)
+  - 시장 심리: {market_sentiment}
+  - 코스피: {kospi.get('value', 0):.2f} ({kospi.get('change_rate', 0):+.2f}%) - {kospi.get('momentum', 'N/A')}
+  - 코스닥: {kosdaq.get('value', 0):.2f} ({kosdaq.get('change_rate', 0):+.2f}%) - {kosdaq.get('momentum', 'N/A')}
+  - {volatility_emoji} 변동성: {volatility_level.upper()}
+  - 시장 폭: {market_breadth} (상승 종목 비율 약 {breadth_pct}%)
 """
 
     # 🔥 Phase 1.3: 시장 지수 비교 텍스트 생성
@@ -1037,7 +1095,8 @@ async def analyze_with_ensemble(
     short_selling: List[Dict] = None,        # 🔥 Phase 1.3
     program_trading: List[Dict] = None,      # 🔥 Phase 1.3
     institutional_flow: Dict[str, Any] = None,  # 🔥 Phase 1.3
-    sector_relative: Dict[str, Any] = None   # 🔥 Phase 4.1: 업종 상대 평가
+    sector_relative: Dict[str, Any] = None,  # 🔥 Phase 4.1: 업종 상대 평가
+    market_context: Dict[str, Any] = None    # 🔥 Phase 4.2: 시장 전체 맥락
 ) -> Dict[str, Any]:
     """
     🔥 Phase 1.3 개선: AI Ensemble 종목 분석 - GPT-4 + Claude 병렬 실행 후 투표 (확장 데이터 반영)
@@ -1045,6 +1104,7 @@ async def analyze_with_ensemble(
     🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
     🔥 Phase 3.3 개선: 신뢰도 계산 개선 - 5개 차원 가중 평균 (권고 30%, 평가점수 25%, 리스크레벨 20%, 리스크점수 15%, 타임프레임 10%)
     🔥 Phase 4.1 개선: 업종 상대 평가 추가 (동일 업종 내 상대 강도 및 초과 수익률 분석)
+    🔥 Phase 4.2 개선: 시장 전체 맥락 반영 (시장 추세, 변동성, 시장 폭 분석)
 
     Args:
         symbol: 종목 코드
@@ -1056,6 +1116,7 @@ async def analyze_with_ensemble(
         analyst_opinion: 애널리스트 의견 (선택)
         sector_info: 업종 정보 (선택)
         sector_relative: 업종 상대 평가 (선택) - Phase 4.1
+        market_context: 시장 전체 맥락 (선택) - Phase 4.2
         market_index: 시장 지수 (선택)
         credit_balance: 신용잔고 추이 (선택)
         short_selling: 공매도 추이 (선택)
@@ -1080,12 +1141,12 @@ async def analyze_with_ensemble(
         gpt4_task = analyze_with_gpt4(
             symbol, symbol_name, price_data, news_data, financial_data, investor_data,
             analyst_opinion, sector_info, market_index, credit_balance, short_selling,
-            program_trading, institutional_flow, sector_relative  # 🔥 Phase 4.1
+            program_trading, institutional_flow, sector_relative, market_context  # 🔥 Phase 4.1 & 4.2
         )
         claude_task = analyze_with_claude(
             symbol, symbol_name, price_data, news_data, financial_data, investor_data,
             analyst_opinion, sector_info, market_index, credit_balance, short_selling,
-            program_trading, institutional_flow, sector_relative  # 🔥 Phase 4.1
+            program_trading, institutional_flow, sector_relative, market_context  # 🔥 Phase 4.1 & 4.2
         )
 
         gpt4_result, claude_result = await asyncio.gather(gpt4_task, claude_task)

@@ -849,3 +849,127 @@ async def get_sector_relative_analysis(symbol: str, sector_code: str) -> Dict[st
             "sample_size": 0,
             "error": str(e)
         }
+
+
+# 🔥 Phase 4.2: 시장 전체 맥락 분석
+async def get_market_context() -> Dict[str, Any]:
+    """
+    시장 전체 맥락 분석 - 종합적인 시장 상황 파악
+
+    Returns:
+        Dict: 시장 맥락 분석 결과
+            - market_trend: 시장 추세 ('bullish', 'bearish', 'neutral')
+            - market_strength: 시장 강도 (0-100)
+            - kospi_momentum: 코스피 모멘텀 지표
+            - kosdaq_momentum: 코스닥 모멘텀 지표
+            - volatility_level: 변동성 수준 ('low', 'medium', 'high')
+            - foreign_flow: 외국인 순매수 추세
+            - institutional_flow: 기관 순매수 추세
+            - market_breadth: 시장 폭 (상승종목/전체종목 비율)
+    """
+    import asyncio
+
+    try:
+        # 1. 코스피, 코스닥 지수 조회 (병렬)
+        kospi_task = get_index_price("0001")  # 코스피
+        kosdaq_task = get_index_price("1001")  # 코스닥
+
+        kospi_data, kosdaq_data = await asyncio.gather(kospi_task, kosdaq_task)
+
+        kospi_change = kospi_data.get("change_rate", 0)
+        kosdaq_change = kosdaq_data.get("change_rate", 0)
+
+        # 2. 시장 추세 판단 (코스피 + 코스닥 평균)
+        avg_market_change = (kospi_change + kosdaq_change) / 2
+
+        if avg_market_change > 0.5:
+            market_trend = "bullish"  # 강세장
+        elif avg_market_change < -0.5:
+            market_trend = "bearish"  # 약세장
+        else:
+            market_trend = "neutral"  # 중립
+
+        # 3. 시장 강도 계산 (0-100)
+        # 등락률 절대값 기준 (0% = 50점, ±2% = 100 or 0점)
+        market_strength = 50 + (avg_market_change / 2.0 * 50)
+        market_strength = max(0, min(100, market_strength))  # 0-100 범위로 제한
+
+        # 4. 모멘텀 지표 (간단한 구현: 등락률 기준)
+        kospi_momentum = "상승" if kospi_change > 0 else "하락" if kospi_change < 0 else "보합"
+        kosdaq_momentum = "상승" if kosdaq_change > 0 else "하락" if kosdaq_change < 0 else "보합"
+
+        # 5. 변동성 수준 (등락률 절대값 기준)
+        volatility = abs(avg_market_change)
+        if volatility < 0.5:
+            volatility_level = "low"
+        elif volatility < 1.5:
+            volatility_level = "medium"
+        else:
+            volatility_level = "high"
+
+        # 6. 시장 폭 (market breadth) - 간단한 추정
+        # 코스피와 코스닥이 모두 상승하면 넓은 시장, 한쪽만 상승하면 좁은 시장
+        if kospi_change > 0 and kosdaq_change > 0:
+            market_breadth = "broad"  # 광범위한 상승
+            breadth_pct = 70  # 약 70% 종목 상승 추정
+        elif kospi_change < 0 and kosdaq_change < 0:
+            market_breadth = "broad_decline"  # 광범위한 하락
+            breadth_pct = 30  # 약 30% 종목 상승 추정
+        else:
+            market_breadth = "narrow"  # 제한적 (일부만 상승/하락)
+            breadth_pct = 50  # 약 50% 종목 상승 추정
+
+        # 7. 시장 심리 (sentiment) 종합
+        if market_trend == "bullish" and volatility_level == "low":
+            market_sentiment = "안정적 상승세"
+        elif market_trend == "bullish" and volatility_level == "high":
+            market_sentiment = "과열 우려"
+        elif market_trend == "bearish" and volatility_level == "low":
+            market_sentiment = "완만한 조정"
+        elif market_trend == "bearish" and volatility_level == "high":
+            market_sentiment = "급락 국면"
+        else:
+            market_sentiment = "관망세"
+
+        result = {
+            "market_trend": market_trend,
+            "market_strength": round(market_strength, 2),
+            "market_sentiment": market_sentiment,
+            "kospi": {
+                "value": kospi_data.get("index_value", 0),
+                "change_rate": kospi_change,
+                "momentum": kospi_momentum
+            },
+            "kosdaq": {
+                "value": kosdaq_data.get("index_value", 0),
+                "change_rate": kosdaq_change,
+                "momentum": kosdaq_momentum
+            },
+            "volatility_level": volatility_level,
+            "volatility_value": round(volatility, 2),
+            "market_breadth": market_breadth,
+            "market_breadth_pct": breadth_pct,
+            # 외국인/기관 순매수는 개별 종목 데이터에서 가져오므로 여기서는 생략
+            "foreign_flow": "N/A",  # 추후 구현
+            "institutional_flow": "N/A"  # 추후 구현
+        }
+
+        print(f"✅ 시장 맥락: {market_trend.upper()} (강도: {market_strength:.1f}, 심리: {market_sentiment})")
+        return result
+
+    except Exception as e:
+        print(f"❌ 시장 맥락 분석 오류: {str(e)}")
+        return {
+            "market_trend": "neutral",
+            "market_strength": 50,
+            "market_sentiment": "데이터 부족",
+            "kospi": {"value": 0, "change_rate": 0, "momentum": "N/A"},
+            "kosdaq": {"value": 0, "change_rate": 0, "momentum": "N/A"},
+            "volatility_level": "medium",
+            "volatility_value": 0,
+            "market_breadth": "neutral",
+            "market_breadth_pct": 50,
+            "foreign_flow": "N/A",
+            "institutional_flow": "N/A",
+            "error": str(e)
+        }
