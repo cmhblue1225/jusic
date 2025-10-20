@@ -11,7 +11,7 @@ import os
 import sys
 import traceback
 import asyncio
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,8 +32,20 @@ try:
     print("📦 모듈 임포트 시작...")
     from cache import get_cached_report, set_cached_report
     print("  ✅ cache 모듈")
-    from kis_data import get_daily_ohlcv, get_financial_ratio, get_investor_trend
-    print("  ✅ kis_data 모듈")
+    from kis_data import (
+        get_daily_ohlcv,
+        get_financial_ratio,
+        get_investor_trend,
+        # 🔥 Phase 1.2: 신규 엔드포인트 7개
+        get_analyst_opinion,
+        get_sector_info,
+        get_credit_balance_trend,
+        get_short_selling_trend,
+        get_program_trading_trend,
+        get_institutional_flow_estimate,
+        get_index_price
+    )
+    print("  ✅ kis_data 모듈 (7개 신규 API 포함)")
     from technical import calculate_all_indicators
     print("  ✅ technical 모듈")
     from ai_analyzer import analyze_stock
@@ -286,24 +298,98 @@ async def generate_report(
 
         async def safe_get_news():
             try:
+                # 🔥 Phase 1.1: 뉴스 데이터 확장 (당일 → 7일, 10개 → 50개)
+                seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+
                 news_result = supabase.table("news") \
-                    .select("id, title, summary, sentiment_score, impact_score, published_at") \
+                    .select("id, title, summary, sentiment_score, impact_score, published_at, url") \
                     .contains("related_symbols", [symbol]) \
-                    .gte("published_at", datetime.now().replace(hour=0, minute=0, second=0).isoformat()) \
+                    .gte("published_at", seven_days_ago) \
+                    .order("impact_score", desc=True) \
                     .order("published_at", desc=True) \
-                    .limit(10) \
+                    .limit(50) \
                     .execute()
                 return news_result.data or []
             except Exception as e:
                 print(f"⚠️ 뉴스 조회 실패: {str(e)}")
                 return []
 
-        # 병렬 실행 (asyncio.gather)
-        financial_data, investor_data, advanced_data, news_data = await asyncio.gather(
+        # 🔥 Phase 1.2: 신규 데이터 조회 함수 7개
+        async def safe_get_analyst_opinion():
+            try:
+                return await rate_limited_kis_request(get_analyst_opinion, symbol)
+            except Exception as e:
+                print(f"⚠️ 애널리스트 의견 조회 실패: {str(e)}")
+                return {"buy_count": 0, "hold_count": 0, "sell_count": 0, "avg_target_price": None, "total_count": 0}
+
+        async def safe_get_sector_info():
+            try:
+                return await rate_limited_kis_request(get_sector_info, symbol)
+            except Exception as e:
+                print(f"⚠️ 업종 정보 조회 실패: {str(e)}")
+                return {"sector_name": None, "sector_code": None}
+
+        async def safe_get_credit_balance():
+            try:
+                return await rate_limited_kis_request(get_credit_balance_trend, symbol, days=5)
+            except Exception as e:
+                print(f"⚠️ 신용잔고 조회 실패: {str(e)}")
+                return []
+
+        async def safe_get_short_selling():
+            try:
+                return await rate_limited_kis_request(get_short_selling_trend, symbol, days=5)
+            except Exception as e:
+                print(f"⚠️ 공매도 조회 실패: {str(e)}")
+                return []
+
+        async def safe_get_program_trading():
+            try:
+                return await rate_limited_kis_request(get_program_trading_trend, symbol, days=5)
+            except Exception as e:
+                print(f"⚠️ 프로그램매매 조회 실패: {str(e)}")
+                return []
+
+        async def safe_get_institutional_flow():
+            try:
+                return await rate_limited_kis_request(get_institutional_flow_estimate, symbol)
+            except Exception as e:
+                print(f"⚠️ 매매 가집계 조회 실패: {str(e)}")
+                return {"foreign_net_buy_amt": 0, "institution_net_buy_amt": 0}
+
+        async def safe_get_kospi_index():
+            try:
+                return await rate_limited_kis_request(get_index_price, "0001")  # 코스피
+            except Exception as e:
+                print(f"⚠️ 코스피 지수 조회 실패: {str(e)}")
+                return {"index_value": 0, "change_rate": 0}
+
+        # 병렬 실행 (asyncio.gather) - 🔥 신규 데이터 포함
+        (
+            financial_data,
+            investor_data,
+            advanced_data,
+            news_data,
+            analyst_opinion,
+            sector_info,
+            credit_balance,
+            short_selling,
+            program_trading,
+            institutional_flow,
+            kospi_index
+        ) = await asyncio.gather(
             safe_get_financial(),
             safe_get_investor(),
             safe_get_advanced(),
-            safe_get_news()
+            safe_get_news(),
+            # 🔥 Phase 1.2: 신규 데이터 조회 7개 추가
+            safe_get_analyst_opinion(),
+            safe_get_sector_info(),
+            safe_get_credit_balance(),
+            safe_get_short_selling(),
+            safe_get_program_trading(),
+            safe_get_institutional_flow(),
+            safe_get_kospi_index()
         )
 
         print(f"✅ 데이터 조회 완료 (병렬 처리)")
@@ -425,6 +511,30 @@ async def generate_report(
 
             # 관련 뉴스
             "related_news_count": len(news_data),
+
+            # 🔥 Phase 1.2: 신규 데이터 7개
+            "analyst_opinion": {
+                "buy_count": analyst_opinion.get("buy_count", 0),
+                "hold_count": analyst_opinion.get("hold_count", 0),
+                "sell_count": analyst_opinion.get("sell_count", 0),
+                "avg_target_price": analyst_opinion.get("avg_target_price"),
+                "total_count": analyst_opinion.get("total_count", 0)
+            },
+            "sector_info": {
+                "sector_name": sector_info.get("sector_name"),
+                "sector_code": sector_info.get("sector_code")
+            },
+            "credit_balance_trend": credit_balance,
+            "short_selling_trend": short_selling,
+            "program_trading_trend": program_trading,
+            "institutional_flow_today": {
+                "foreign_net_buy_amt": institutional_flow.get("foreign_net_buy_amt", 0),
+                "institution_net_buy_amt": institutional_flow.get("institution_net_buy_amt", 0)
+            },
+            "market_index": {
+                "kospi_value": kospi_index.get("index_value", 0),
+                "kospi_change_rate": kospi_index.get("change_rate", 0)
+            },
 
             # 메타데이터
             "cached": False,

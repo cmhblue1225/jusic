@@ -341,3 +341,403 @@ async def get_investor_trend(symbol: str) -> Dict[str, Any]:
 
         print(f"✅ {symbol} 투자자 동향: 외국인={result['foreign_net_buy']:+,}주, 기관={result['institution_net_buy']:+,}주")
         return result
+
+
+# =============================================================================
+# 🔥 Phase 1.2: 추가 KIS API 엔드포인트 (7개)
+# =============================================================================
+
+async def get_analyst_opinion(symbol: str) -> Dict[str, Any]:
+    """
+    증권사 투자의견 조회 (TR_ID: FHKST663300C0)
+
+    Args:
+        symbol: 종목 코드 (6자리)
+
+    Returns:
+        Dict: 투자의견 정보
+            - buy_count: 매수 의견 개수
+            - hold_count: 중립 의견 개수
+            - sell_count: 매도 의견 개수
+            - avg_target_price: 평균 목표가
+            - total_count: 총 의견 개수
+    """
+    token = await get_access_token()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/invest-opinion",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHKST663300C0"
+            },
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": symbol
+            }
+        )
+
+        if response.status_code != 200:
+            print(f"⚠️ 투자의견 조회 실패: {response.status_code}")
+            return {"buy_count": 0, "hold_count": 0, "sell_count": 0, "avg_target_price": None, "total_count": 0}
+
+        data = response.json()
+
+        if data.get("rt_cd") != "0":
+            print(f"⚠️ KIS API 오류: {data.get('msg1', '알 수 없는 오류')}")
+            return {"buy_count": 0, "hold_count": 0, "sell_count": 0, "avg_target_price": None, "total_count": 0}
+
+        output = data.get("output", [])
+
+        if not output:
+            return {"buy_count": 0, "hold_count": 0, "sell_count": 0, "avg_target_price": None, "total_count": 0}
+
+        buy_count = 0
+        hold_count = 0
+        sell_count = 0
+        target_prices = []
+
+        for item in output:
+            opinion = item.get("stck_invt_opnn", "").strip()
+            target_price = item.get("stck_stdt_prpr", "")
+
+            if "매수" in opinion or "BUY" in opinion.upper():
+                buy_count += 1
+            elif "중립" in opinion or "HOLD" in opinion.upper():
+                hold_count += 1
+            elif "매도" in opinion or "SELL" in opinion.upper():
+                sell_count += 1
+
+            if target_price and target_price.strip():
+                try:
+                    target_prices.append(float(target_price.replace(",", "")))
+                except:
+                    pass
+
+        avg_target = sum(target_prices) / len(target_prices) if target_prices else None
+        total = buy_count + hold_count + sell_count
+
+        result = {
+            "buy_count": buy_count,
+            "hold_count": hold_count,
+            "sell_count": sell_count,
+            "avg_target_price": int(avg_target) if avg_target else None,
+            "total_count": total
+        }
+
+        print(f"✅ {symbol} 투자의견: 매수={buy_count}, 중립={hold_count}, 매도={sell_count}, 평균목표가={result['avg_target_price']:,}원" if avg_target else f"✅ {symbol} 투자의견: 매수={buy_count}, 중립={hold_count}, 매도={sell_count}")
+        return result
+
+
+async def get_sector_info(symbol: str) -> Dict[str, Any]:
+    """
+    업종 정보 조회 (종목 기본 조회 API 활용)
+    
+    Args:
+        symbol: 종목 코드 (6자리)
+    
+    Returns:
+        Dict: 업종 정보
+            - sector_name: 업종명
+            - sector_code: 업종 코드
+    """
+    token = await get_access_token()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/search-stock-info",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "CTPF1002R"
+            },
+            params={
+                "PDNO": symbol,
+                "PRDT_TYPE_CD": "300"
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ 종목 정보 조회 실패: {response.status_code}")
+            return {"sector_name": None, "sector_code": None}
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            return {"sector_name": None, "sector_code": None}
+        
+        output = data.get("output", {})
+        
+        result = {
+            "sector_name": output.get("std_idst_clsf_cd_name", "미분류"),
+            "sector_code": output.get("std_idst_clsf_cd", "")
+        }
+        
+        print(f"✅ {symbol} 업종: {result['sector_name']}")
+        return result
+
+
+async def get_credit_balance_trend(symbol: str, days: int = 5) -> List[Dict]:
+    """
+    신용잔고 일별 추이 (TR_ID: FHPST04760000)
+    
+    Args:
+        symbol: 종목 코드
+        days: 조회 일수 (기본 5일)
+    
+    Returns:
+        List[Dict]: 일별 신용잔고 데이터
+    """
+    token = await get_access_token()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-credit-balance",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHPST04760000"
+            },
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": symbol,
+                "fid_input_date_1": (datetime.now() - timedelta(days=days+5)).strftime("%Y%m%d"),
+                "fid_input_date_2": datetime.now().strftime("%Y%m%d")
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ 신용잔고 조회 실패: {response.status_code}")
+            return []
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            return []
+        
+        output = data.get("output", [])
+        
+        result = []
+        for item in output[:days]:
+            result.append({
+                "date": item.get("stck_bsop_date"),
+                "credit_balance": int(item.get("crdt_ord_blce", "0").replace(",", "")) if item.get("crdt_ord_blce") else 0
+            })
+        
+        print(f"✅ {symbol} 신용잔고 추이: {len(result)}일")
+        return result
+
+
+async def get_short_selling_trend(symbol: str, days: int = 5) -> List[Dict]:
+    """
+    공매도 일별 추이 (TR_ID: FHPST04830000)
+    
+    Args:
+        symbol: 종목 코드
+        days: 조회 일수
+    
+    Returns:
+        List[Dict]: 일별 공매도 데이터
+    """
+    token = await get_access_token()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/daily-short-sale",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHPST04830000"
+            },
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": symbol,
+                "fid_input_date_1": (datetime.now() - timedelta(days=days+5)).strftime("%Y%m%d"),
+                "fid_input_date_2": datetime.now().strftime("%Y%m%d")
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ 공매도 조회 실패: {response.status_code}")
+            return []
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            return []
+        
+        output = data.get("output", [])
+        
+        result = []
+        for item in output[:days]:
+            result.append({
+                "date": item.get("stck_bsop_date"),
+                "short_balance": int(item.get("ssts_ord_blce", "0").replace(",", "")) if item.get("ssts_ord_blce") else 0
+            })
+        
+        print(f"✅ {symbol} 공매도 추이: {len(result)}일")
+        return result
+
+
+async def get_program_trading_trend(symbol: str, days: int = 5) -> List[Dict]:
+    """
+    프로그램매매 추이 (TR_ID: FHPPG04650201)
+    
+    Args:
+        symbol: 종목 코드
+        days: 조회 일수
+    
+    Returns:
+        List[Dict]: 일별 프로그램매매 데이터
+    """
+    token = await get_access_token()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/program-trade-by-stock-daily",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHPPG04650201"
+            },
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": symbol,
+                "fid_input_date_1": (datetime.now() - timedelta(days=days+5)).strftime("%Y%m%d"),
+                "fid_input_date_2": datetime.now().strftime("%Y%m%d")
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ 프로그램매매 조회 실패: {response.status_code}")
+            return []
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            return []
+        
+        output = data.get("output", [])
+        
+        result = []
+        for item in output[:days]:
+            result.append({
+                "date": item.get("stck_bsop_date"),
+                "program_net_buy": int(item.get("stck_prpr", "0").replace(",", "")) if item.get("stck_prpr") else 0
+            })
+        
+        print(f"✅ {symbol} 프로그램매매 추이: {len(result)}일")
+        return result
+
+
+async def get_institutional_flow_estimate(symbol: str) -> Dict[str, Any]:
+    """
+    기관/외인 매매 가집계 (TR_ID: FHPTJ04400000)
+    당일 누적 순매수 데이터
+    
+    Args:
+        symbol: 종목 코드
+    
+    Returns:
+        Dict: 당일 누적 매매 데이터
+            - foreign_net_buy_amt: 외국인 순매수금액
+            - institution_net_buy_amt: 기관 순매수금액
+    """
+    token = await get_access_token()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/foreign-institution-total",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHPTJ04400000"
+            },
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": symbol,
+                "fid_input_date_1": datetime.now().strftime("%Y%m%d")
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ 매매 가집계 조회 실패: {response.status_code}")
+            return {"foreign_net_buy_amt": 0, "institution_net_buy_amt": 0}
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            return {"foreign_net_buy_amt": 0, "institution_net_buy_amt": 0}
+        
+        output = data.get("output", {})
+        
+        result = {
+            "foreign_net_buy_amt": float(output.get("frgn_ntby_tr_pbmn", "0").replace(",", "")) if output.get("frgn_ntby_tr_pbmn") else 0,
+            "institution_net_buy_amt": float(output.get("orgn_ntby_tr_pbmn", "0").replace(",", "")) if output.get("orgn_ntby_tr_pbmn") else 0
+        }
+        
+        print(f"✅ {symbol} 당일 매매: 외국인={result['foreign_net_buy_amt']/1e8:.1f}억, 기관={result['institution_net_buy_amt']/1e8:.1f}억")
+        return result
+
+
+async def get_index_price(index_code: str) -> Dict[str, Any]:
+    """
+    업종 지수 조회 (TR_ID: FHPUP02100000)
+    
+    Args:
+        index_code: 지수 코드 (예: 0001=코스피, 1001=코스닥)
+    
+    Returns:
+        Dict: 지수 정보
+            - index_value: 지수 값
+            - change_rate: 등락률
+    """
+    token = await get_access_token()
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-index-price",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHPUP02100000"
+            },
+            params={
+                "fid_cond_mrkt_div_code": "U",
+                "fid_input_iscd": index_code
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ 지수 조회 실패: {response.status_code}")
+            return {"index_value": 0, "change_rate": 0}
+        
+        data = response.json()
+        
+        if data.get("rt_cd") != "0":
+            return {"index_value": 0, "change_rate": 0}
+        
+        output = data.get("output", {})
+        
+        result = {
+            "index_value": float(output.get("bstp_nmix_prpr", "0").replace(",", "")) if output.get("bstp_nmix_prpr") else 0,
+            "change_rate": float(output.get("bstp_nmix_prdy_ctrt", "0")) if output.get("bstp_nmix_prdy_ctrt") else 0
+        }
+        
+        print(f"✅ 지수 {index_code}: {result['index_value']:.2f} ({result['change_rate']:+.2f}%)")
+        return result
