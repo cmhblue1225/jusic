@@ -117,11 +117,19 @@ print("✅ CORS 미들웨어 추가 완료")
 
 # Supabase 클라이언트
 print("📊 Supabase 클라이언트 초기화 중...")
+supabase_url = os.getenv("SUPABASE_URL", "")
+supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+print(f"   - SUPABASE_URL: {supabase_url[:50]}..." if supabase_url else "   - ❌ SUPABASE_URL 누락")
+print(f"   - SUPABASE_SERVICE_KEY: {'✅ 설정됨' if supabase_key else '❌ 누락'}")
+
+if not supabase_url or not supabase_key:
+    print("❌ Supabase 환경 변수가 누락되었습니다!")
+    print("   Railway에서 SUPABASE_URL과 SUPABASE_SERVICE_KEY를 설정하세요.")
+    sys.exit(1)
+
 try:
-    supabase: Client = create_client(
-        os.getenv("SUPABASE_URL", ""),
-        os.getenv("SUPABASE_SERVICE_KEY", "")
-    )
+    supabase: Client = create_client(supabase_url, supabase_key)
     print("✅ Supabase 클라이언트 생성 완료")
 except Exception as e:
     print(f"❌ Supabase 초기화 실패: {str(e)}")
@@ -130,6 +138,7 @@ except Exception as e:
 
 print("=" * 60)
 print("✅ Report Service 초기화 완료!")
+print(f"📍 서버 실행 준비 완료 - PORT: {os.getenv('PORT', '8000')}")
 print("=" * 60)
 
 
@@ -325,6 +334,21 @@ def prepare_chart_data(
 @app.get("/health")
 async def health():
     """헬스 체크"""
+    # Redis 연결 상태 확인
+    from cache import get_redis_client
+    redis_status = "connected" if get_redis_client() else "disconnected"
+
+    # 환경 변수 체크
+    env_check = {
+        "SUPABASE_URL": bool(os.getenv("SUPABASE_URL")),
+        "SUPABASE_SERVICE_KEY": bool(os.getenv("SUPABASE_SERVICE_KEY")),
+        "KIS_APP_KEY": bool(os.getenv("KIS_APP_KEY")),
+        "KIS_APP_SECRET": bool(os.getenv("KIS_APP_SECRET")),
+        "OPENAI_API_KEY": bool(os.getenv("OPENAI_API_KEY")),
+        "CLAUDE_API_KEY": bool(os.getenv("CLAUDE_API_KEY")),
+        "REDIS_URL": bool(os.getenv("REDIS_URL")),
+    }
+
     return {
         "status": "ok",
         "service": "report-service",
@@ -335,8 +359,13 @@ async def health():
             "advanced_indicators": True,
             "order_book": True,
             "rate_limiting": True,
-            "parallel_processing": True
-        }
+            "parallel_processing": True,
+            "chart_data": True
+        },
+        "redis_status": redis_status,
+        "environment": os.getenv("RAILWAY_ENVIRONMENT", "local"),
+        "port": os.getenv("PORT", "8000"),
+        "env_check": env_check
     }
 
 
