@@ -129,13 +129,20 @@ async def analyze_with_gpt4(
   "evaluation_score": "평가 점수 (0~100, 숫자만)",
   "reasoning": "판단 근거 (2~3문장)",
   "target_price_range": "목표 주가 범위 (예: '70000~80000')",
-  "time_horizon": "투자 기간 ('short_term', 'medium_term', 'long_term')"
+  "time_horizon": "투자 기간 ('short_term', 'medium_term', 'long_term')",
+  "investment_strategy": "구체적인 투자 전략 (2~3문장, 진입/청산 시점 포함)",
+  "technical_analysis": "기술적 분석 상세 (3~4문장, 이평선/RSI/MACD 등 해석)",
+  "fundamental_analysis": "기본적 분석 상세 (3~4문장, PER/PBR/ROE 등 해석)",
+  "market_sentiment": "시장 심리 분석 (2~3문장, 투자자 동향 포함)",
+  "catalysts": "긍정적 촉매 요인 (3~5개 항목, 줄바꿈으로 구분)",
+  "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)"
 }}
 
 **중요 사항:**
 - 위험도는 변동성, 뉴스 부정도, 볼린저 밴드 이탈 여부를 고려하세요.
 - 투자 권고는 이동평균, RSI, MACD, 뉴스 감성, 외국인/기관 매매를 고려하세요.
 - 평가 점수는 기술적 지표, 재무비율, 투자자 동향, 뉴스 감성을 종합한 절대 점수입니다.
+- **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
 - 반드시 JSON 형식으로만 응답하세요.
 """
 
@@ -166,6 +173,13 @@ async def analyze_with_gpt4(
             "reasoning": ai_response.get("reasoning", ""),
             "target_price_range": ai_response.get("target_price_range", ""),
             "time_horizon": ai_response.get("time_horizon", "medium_term"),
+            # 🔥 심화 분석 필드 추가
+            "investment_strategy": ai_response.get("investment_strategy", ""),
+            "technical_analysis": ai_response.get("technical_analysis", ""),
+            "fundamental_analysis": ai_response.get("fundamental_analysis", ""),
+            "market_sentiment": ai_response.get("market_sentiment", ""),
+            "catalysts": ai_response.get("catalysts", ""),
+            "risk_factors": ai_response.get("risk_factors", ""),
             "raw_response": ai_response
         }
 
@@ -271,13 +285,20 @@ async def analyze_with_claude(
   "evaluation_score": "평가 점수 (0~100, 숫자만)",
   "reasoning": "판단 근거 (2~3문장, 리스크 요인 강조)",
   "target_price_range": "목표 주가 범위 (예: '70000~80000')",
-  "time_horizon": "투자 기간 ('short_term', 'medium_term', 'long_term')"
+  "time_horizon": "투자 기간 ('short_term', 'medium_term', 'long_term')",
+  "investment_strategy": "구체적인 투자 전략 (2~3문장, 진입/청산 시점 포함)",
+  "technical_analysis": "기술적 분석 상세 (3~4문장, 이평선/RSI/MACD 등 해석)",
+  "fundamental_analysis": "기본적 분석 상세 (3~4문장, PER/PBR/ROE 등 해석)",
+  "market_sentiment": "시장 심리 분석 (2~3문장, 투자자 동향 포함)",
+  "catalysts": "긍정적 촉매 요인 (3~5개 항목, 줄바꿈으로 구분)",
+  "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)"
 }}
 
 **중요 사항:**
 - 위험도는 변동성(ATR), 부채비율, 뉴스 부정도, 볼린저 밴드 이탈을 중점적으로 평가하세요.
 - 투자 권고는 리스크-리워드 비율을 고려하세요.
 - 평가 점수는 보수적으로 책정하세요 (리스크가 크면 점수 낮춤).
+- **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
 - 반드시 JSON 형식으로만 응답하세요.
 """
 
@@ -316,6 +337,13 @@ async def analyze_with_claude(
             "reasoning": ai_response.get("reasoning", ""),
             "target_price_range": ai_response.get("target_price_range", ""),
             "time_horizon": ai_response.get("time_horizon", "medium_term"),
+            # 🔥 심화 분석 필드 추가
+            "investment_strategy": ai_response.get("investment_strategy", ""),
+            "technical_analysis": ai_response.get("technical_analysis", ""),
+            "fundamental_analysis": ai_response.get("fundamental_analysis", ""),
+            "market_sentiment": ai_response.get("market_sentiment", ""),
+            "catalysts": ai_response.get("catalysts", ""),
+            "risk_factors": ai_response.get("risk_factors", ""),
             "raw_response": ai_response
         }
 
@@ -405,6 +433,12 @@ def ensemble_vote(results: List[Dict[str, Any]]) -> Dict[str, Any]:
             "risk_level": r["risk_level"]
         }
 
+    # 7. 심화 분석 필드 병합 (우선순위: GPT-4 > Claude)
+    # GPT-4 결과 우선 사용, 없으면 Claude 결과 사용
+    gpt4_result = next((r for r in results if "gpt-4" in r["model"]), None)
+    claude_result = next((r for r in results if "claude" in r["model"]), None)
+    primary_result = gpt4_result or claude_result or results[0]
+
     result = {
         "summary": final_summary,
         "risk_level": final_risk_level,
@@ -412,6 +446,15 @@ def ensemble_vote(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         "evaluation_score": round(final_score, 2),
         "confidence_score": round(confidence_score, 2),
         "model_agreement": model_agreement,
+        # 🔥 심화 분석 필드 추가 (primary_result에서 가져오기)
+        "investment_strategy": primary_result.get("investment_strategy", ""),
+        "technical_analysis": primary_result.get("technical_analysis", ""),
+        "fundamental_analysis": primary_result.get("fundamental_analysis", ""),
+        "market_sentiment": primary_result.get("market_sentiment", ""),
+        "catalysts": primary_result.get("catalysts", ""),
+        "risk_factors": primary_result.get("risk_factors", ""),
+        "target_price_range": primary_result.get("target_price_range", ""),
+        "time_horizon": primary_result.get("time_horizon", "medium_term"),
         "ensemble_metadata": {
             "models_used": [r["model"] for r in results],
             "recommendation_counts": recommendation_counts,
@@ -503,6 +546,15 @@ async def analyze_with_ensemble(
             "recommendation": single_result["recommendation"],
             "evaluation_score": single_result["evaluation_score"],
             "confidence_score": 50.0,  # 단일 모델이므로 중간 신뢰도
+            # 🔥 심화 분석 필드 추가
+            "investment_strategy": single_result.get("investment_strategy", ""),
+            "technical_analysis": single_result.get("technical_analysis", ""),
+            "fundamental_analysis": single_result.get("fundamental_analysis", ""),
+            "market_sentiment": single_result.get("market_sentiment", ""),
+            "catalysts": single_result.get("catalysts", ""),
+            "risk_factors": single_result.get("risk_factors", ""),
+            "target_price_range": single_result.get("target_price_range", ""),
+            "time_horizon": single_result.get("time_horizon", "medium_term"),
             "model_agreement": {single_result["model"]: {
                 "recommendation": single_result["recommendation"],
                 "evaluation_score": single_result["evaluation_score"],
