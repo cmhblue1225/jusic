@@ -22,13 +22,22 @@ load_dotenv()
 # FastAPI 앱 초기화
 app = FastAPI(title="Report Service", version="1.0.0")
 
-# CORS 설정
+# CORS 설정 (프로덕션 도메인 명시)
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://jusik.minhyuk.kr",
+    "https://www.jusik.minhyuk.kr",
+    "*"  # 폴백: 모든 도메인 허용
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: 프로덕션에서는 특정 도메인만 허용
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Supabase 클라이언트
