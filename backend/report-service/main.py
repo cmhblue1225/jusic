@@ -503,6 +503,8 @@ async def generate_report(
         # ai_result의 risk_score를 risk_scores 형식으로 변환
         ai_risk_score = ai_result.get("risk_score", 50)
         print(f"🔍 [DEBUG] ai_risk_score: {ai_risk_score} (type: {type(ai_risk_score)})")
+        print(f"🔍 [DEBUG] ai_result keys: {ai_result.keys() if isinstance(ai_result, dict) else 'NOT A DICT'}")
+        print(f"🔍 [DEBUG] ai_result: {ai_result}")
         risk_scores_formatted = {
             "short_term": {"score": ai_risk_score},
             "mid_term": {"score": ai_risk_score},
