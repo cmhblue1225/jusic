@@ -8,8 +8,18 @@ import json
 from typing import Dict, List, Any
 from openai import AsyncOpenAI
 
-# OpenAI 클라이언트 초기화
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# OpenAI 클라이언트 초기화 (지연 초기화)
+_client = None
+
+def get_openai_client():
+    """OpenAI 클라이언트 지연 초기화 및 반환"""
+    global _client
+    if _client is None:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+        _client = AsyncOpenAI(api_key=api_key)
+    return _client
 
 
 async def analyze_stock(
@@ -107,6 +117,9 @@ async def analyze_stock(
     print(f"🤖 OpenAI GPT-4o-mini 분석 시작: {symbol_name} ({symbol})")
 
     try:
+        # OpenAI 클라이언트 가져오기 (환경 변수 체크)
+        client = get_openai_client()
+
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
