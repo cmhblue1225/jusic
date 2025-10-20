@@ -26,6 +26,9 @@ supabase: Client = create_client(
 # AI Service URL
 AI_SERVICE_URL = os.getenv("AI_SERVICE_URL", "http://localhost:3003")
 
+# 🔥 AI 분석 활성화 여부 (환경 변수로 제어)
+AI_ANALYSIS_ENABLED = os.getenv("AI_ANALYSIS_ENABLED", "true").lower() == "true"
+
 # 종목명 추출기 초기화
 stock_ner = StockNER(supabase)
 
@@ -257,8 +260,12 @@ async def crawl_news():
             print(f"   URL: {url}")
             print(f"   NER 추출 종목: {related_symbols}")
 
-            # 5. AI 분석 요청 (URL 포함으로 캐싱 활용)
-            ai_result = await analyze_news_with_ai(title, content, related_symbols, url)
+            # 5. AI 분석 요청 (환경 변수로 제어)
+            ai_result = None
+            if AI_ANALYSIS_ENABLED:
+                ai_result = await analyze_news_with_ai(title, content, related_symbols, url)
+            else:
+                print(f"   ⏸️ AI 분석 비활성화됨 (AI_ANALYSIS_ENABLED=false)")
 
             # 6. Supabase에 저장
             news_data = {
@@ -316,6 +323,7 @@ async def startup_event():
     scheduler.add_job(crawl_news_sync, 'interval', minutes=5)
     scheduler.start()
     print("📰 News Crawler Scheduler started (every 5 minutes)")
+    print(f"🤖 AI 분석: {'✅ 활성화' if AI_ANALYSIS_ENABLED else '⏸️ 비활성화'}")
 
     # 시작 시 즉시 한 번 실행
     print("🚀 초기 크롤링 실행...")
