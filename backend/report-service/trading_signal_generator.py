@@ -360,8 +360,9 @@ def assess_market_favorability(market_context: Dict[str, Any]) -> Dict[str, Any]
 def integrate_ai_recommendations(ai_recommendations: Dict[str, Any]) -> Dict[str, Any]:
     """AI 앙상블 추천 통합"""
     # Phase 3.3의 AI 앙상블 결과 활용
-    consensus = ai_recommendations.get("consensus") or "hold"
-    confidence = ai_recommendations.get("confidence") or 50
+    # ai_ensemble에서 반환하는 키: recommendation, confidence_score
+    consensus = ai_recommendations.get("recommendation") or ai_recommendations.get("consensus") or "hold"
+    confidence = ai_recommendations.get("confidence_score") or ai_recommendations.get("confidence") or 50
 
     # 컨센서스를 신호로 변환
     if consensus in ["strong_buy", "buy"]:
