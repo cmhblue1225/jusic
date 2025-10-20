@@ -3,6 +3,8 @@ Report Service - FastAPI 서버
 종목 레포트 생성 및 조회 API
 """
 import os
+import sys
+import traceback
 from datetime import datetime, date
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Response
@@ -11,25 +13,44 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# 로컬 모듈 임포트
-from cache import get_cached_report, set_cached_report
-from kis_data import get_daily_ohlcv
-from technical import calculate_all_indicators
-from ai_analyzer import analyze_stock
+print("=" * 60)
+print("🚀 Report Service 초기화 시작...")
+print("=" * 60)
 
+# 환경 변수 로드
 load_dotenv()
+print("✅ .env 로드 완료")
+
+# 로컬 모듈 임포트 (에러 발생 시 상세 로그)
+try:
+    print("📦 모듈 임포트 시작...")
+    from cache import get_cached_report, set_cached_report
+    print("  ✅ cache 모듈")
+    from kis_data import get_daily_ohlcv
+    print("  ✅ kis_data 모듈")
+    from technical import calculate_all_indicators
+    print("  ✅ technical 모듈")
+    from ai_analyzer import analyze_stock
+    print("  ✅ ai_analyzer 모듈")
+    print("✅ 모든 모듈 임포트 완료")
+except Exception as e:
+    print(f"❌ 모듈 임포트 실패: {str(e)}")
+    traceback.print_exc()
+    sys.exit(1)
 
 # FastAPI 앱 초기화
+print("📦 FastAPI 앱 초기화 중...")
 app = FastAPI(
     title="Report Service",
     version="1.0.1",
     docs_url="/docs",
     redoc_url="/redoc"
 )
+print("✅ FastAPI 앱 생성 완료")
 
 # CORS 설정 (프로덕션 도메인 명시)
 # 🔥 중요: 미들웨어는 앱 초기화 직후에 추가해야 함
-print("🚀 Report Service 시작 중...")
+print("🔐 CORS 미들웨어 설정 중...")
 print(f"📍 환경: {os.getenv('RAILWAY_ENVIRONMENT', 'local')}")
 
 # 환경 변수 ALLOWED_ORIGINS가 설정되어 있으면 사용, 아니면 기본값
@@ -53,12 +74,24 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+print("✅ CORS 미들웨어 추가 완료")
 
 # Supabase 클라이언트
-supabase: Client = create_client(
-    os.getenv("SUPABASE_URL", ""),
-    os.getenv("SUPABASE_SERVICE_KEY", "")
-)
+print("📊 Supabase 클라이언트 초기화 중...")
+try:
+    supabase: Client = create_client(
+        os.getenv("SUPABASE_URL", ""),
+        os.getenv("SUPABASE_SERVICE_KEY", "")
+    )
+    print("✅ Supabase 클라이언트 생성 완료")
+except Exception as e:
+    print(f"❌ Supabase 초기화 실패: {str(e)}")
+    traceback.print_exc()
+    sys.exit(1)
+
+print("=" * 60)
+print("✅ Report Service 초기화 완료!")
+print("=" * 60)
 
 
 # ========== Pydantic 모델 ==========
