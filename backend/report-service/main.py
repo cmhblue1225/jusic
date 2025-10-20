@@ -61,6 +61,9 @@ try:
     from kis_data_advanced import get_advanced_stock_data
     print("  ✅ kis_data_advanced 모듈 (호가/체결)")
     from sector_analysis import compare_with_sector, detect_sector_rotation
+    # 🔥 Phase 5.1: 목표가 산출 모듈
+    from target_price_calculator import calculate_target_prices
+    print("  ✅ target_price_calculator 모듈 (목표가 산출)")
     print("  ✅ sector_analysis 모듈 (섹터 비교)")
     from rate_limiter import rate_limited_kis_request
     print("  ✅ rate_limiter 모듈 (API Rate Limit)")
@@ -480,6 +483,17 @@ async def generate_report(
                 investor_data=investor_data
             )
 
+        # 🔥 Phase 5.1: 목표가 산출 (보수적/중립적/공격적)
+        print(f"💰 목표가 산출...")
+        target_prices = calculate_target_prices(
+            current_price=indicators["current_price"],
+            financial_data=financial_data,
+            analyst_opinion=analyst_opinion,
+            price_data=indicators,
+            sector_relative=sector_relative,
+            market_context=market_context
+        )
+
         # 5. 레포트 데이터 구성
         report = {
             # 기본 정보
@@ -611,6 +625,16 @@ async def generate_report(
                 "volatility_value": market_context.get("volatility_value", 0),
                 "market_breadth": market_context.get("market_breadth", "neutral"),
                 "market_breadth_pct": market_context.get("market_breadth_pct", 50)
+            },
+            # 🔥 Phase 5.1: 목표가 산출
+            "target_prices": {
+                "conservative": target_prices.get("conservative"),
+                "neutral": target_prices.get("neutral"),
+                "aggressive": target_prices.get("aggressive"),
+                "current_price": target_prices.get("current_price"),
+                "upside_potential": target_prices.get("upside_potential", {}),
+                "methods": target_prices.get("methods", {}),
+                "market_adjustment_factor": target_prices.get("market_adjustment_factor", 1.0)
             },
 
             # 메타데이터
