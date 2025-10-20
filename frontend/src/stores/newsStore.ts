@@ -27,7 +27,7 @@ interface NewsState {
   selectedSymbol: string | null; // 필터링용 종목 선택
 
   // Actions
-  fetchNews: (limit?: number) => Promise<void>;
+  fetchNews: (userId?: string, limit?: number) => Promise<void>;
   fetchNewsBySymbol: (symbol: string) => Promise<void>;
   clearFilter: () => void;
   clearError: () => void;
@@ -40,15 +40,53 @@ export const useNewsStore = create<NewsState>((set) => ({
   selectedSymbol: null,
 
   /**
-   * 전체 뉴스 조회 (최신순)
+   * 사용자 관련 뉴스 조회 (보유 종목 + 관심 종목)
    */
-  fetchNews: async (limit = 50) => {
+  fetchNews: async (userId?: string, limit = 100) => {
     try {
       set({ loading: true, error: null, selectedSymbol: null });
 
+      // userId가 없으면 전체 뉴스 조회
+      if (!userId) {
+        const { data, error } = await supabase
+          .from('news')
+          .select('*')
+          .order('published_at', { ascending: false })
+          .limit(limit);
+
+        if (error) throw error;
+        set({ items: data || [], loading: false });
+        return;
+      }
+
+      // 1. 사용자의 보유 종목 조회
+      const { data: portfolioData } = await supabase
+        .from('portfolios')
+        .select('symbol')
+        .eq('user_id', userId);
+
+      // 2. 사용자의 관심 종목 조회
+      const { data: watchlistData } = await supabase
+        .from('watchlist')
+        .select('symbol')
+        .eq('user_id', userId);
+
+      // 3. 종목 코드 추출 (중복 제거)
+      const portfolioSymbols = portfolioData?.map((p) => p.symbol) || [];
+      const watchlistSymbols = watchlistData?.map((w) => w.symbol) || [];
+      const userSymbols = [...new Set([...portfolioSymbols, ...watchlistSymbols])];
+
+      // 종목이 없으면 빈 배열 반환
+      if (userSymbols.length === 0) {
+        set({ items: [], loading: false });
+        return;
+      }
+
+      // 4. 사용자 관련 종목의 뉴스만 조회
       const { data, error } = await supabase
         .from('news')
         .select('*')
+        .overlaps('related_symbols', userSymbols) // 배열 겹침 체크
         .order('published_at', { ascending: false })
         .limit(limit);
 

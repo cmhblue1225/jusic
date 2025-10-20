@@ -15,10 +15,12 @@ export default function News() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'impact'>('date'); // 정렬 기준
 
-  // 뉴스 로드
+  // 뉴스 로드 (사용자별 필터링)
   useEffect(() => {
-    fetchNews();
-  }, [fetchNews]);
+    if (user) {
+      fetchNews(user.id); // userId 전달
+    }
+  }, [user, fetchNews]);
 
   // 관심 종목 로드
   useEffect(() => {
@@ -36,7 +38,9 @@ export default function News() {
   const handleSymbolFilter = (symbol: string) => {
     if (symbol === selectedSymbol) {
       clearFilter();
-      fetchNews();
+      if (user) {
+        fetchNews(user.id); // userId 전달
+      }
     } else {
       fetchNewsBySymbol(symbol);
     }
@@ -182,7 +186,9 @@ export default function News() {
                   <button
                     onClick={() => {
                       clearFilter();
-                      fetchNews();
+                      if (user) {
+                        fetchNews(user.id); // userId 전달
+                      }
                     }}
                     className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                       !selectedSymbol
