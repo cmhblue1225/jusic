@@ -58,6 +58,83 @@ async def analyze_news_with_ai(title: str, content: str, symbols: list, url: str
         return None
 
 
+async def create_alerts_for_news(news_data: dict, ai_result: dict):
+    """
+    영향도가 높은 뉴스에 대해 관련 종목을 보유/관심 중인 사용자에게 알림 생성
+
+    Args:
+        news_data: 뉴스 데이터
+        ai_result: AI 분석 결과
+    """
+    try:
+        related_symbols = news_data.get("related_symbols", [])
+        if not related_symbols:
+            return
+
+        impact_score = ai_result.get("impact_score", 0)
+        sentiment_score = ai_result.get("sentiment_score", 0)
+        recommended_action = ai_result.get("recommended_action", "hold")
+
+        # 1. 해당 종목을 보유/관심 중인 사용자 조회
+        portfolio_users = supabase.table("portfolios") \
+            .select("user_id") \
+            .in_("symbol", related_symbols) \
+            .execute()
+
+        watchlist_users = supabase.table("watchlist") \
+            .select("user_id") \
+            .in_("symbol", related_symbols) \
+            .execute()
+
+        # 사용자 ID 중복 제거
+        user_ids = set()
+        if portfolio_users.data:
+            user_ids.update([item["user_id"] for item in portfolio_users.data])
+        if watchlist_users.data:
+            user_ids.update([item["user_id"] for item in watchlist_users.data])
+
+        if not user_ids:
+            print(f"   ℹ️ 관련 사용자 없음 (종목: {related_symbols})")
+            return
+
+        # 2. 각 사용자에게 알림 생성
+        alerts = []
+        for user_id in user_ids:
+            # 감성에 따른 이모지
+            emoji = "📈" if sentiment_score > 0 else "📉" if sentiment_score < 0 else "📊"
+
+            # 권고에 따른 액션 텍스트
+            action_text = {
+                "buy": "매수 검토",
+                "sell": "매도 검토",
+                "hold": "관망 권장"
+            }.get(recommended_action, "정보 확인")
+
+            alert = {
+                "user_id": user_id,
+                "type": "news",
+                "title": f"{emoji} 중요 뉴스 ({', '.join(related_symbols[:3])})",
+                "message": f"{news_data['title'][:100]}... [{action_text}]",
+                "params": {
+                    "news_url": news_data.get("url"),
+                    "impact_score": impact_score,
+                    "sentiment_score": sentiment_score,
+                    "recommended_action": recommended_action,
+                    "related_symbols": related_symbols,
+                },
+                "status": "unread",
+            }
+            alerts.append(alert)
+
+        # 3. 배치 삽입
+        if alerts:
+            supabase.table("alerts").insert(alerts).execute()
+            print(f"   🔔 알림 생성 완료: {len(alerts)}명 사용자")
+
+    except Exception as e:
+        print(f"❌ 알림 생성 오류: {str(e)}")
+
+
 async def get_user_tracked_stocks() -> list:
     """모든 사용자의 보유 종목 + 관심 종목 조회 (중복 제거)"""
     try:
@@ -207,6 +284,10 @@ async def crawl_news():
             result = supabase.table("news").insert(news_data).execute()
             new_count += 1
             print(f"✅ 뉴스 저장 완료")
+
+            # 7. 영향도 기반 알림 생성 (impact_score >= 0.7)
+            if ai_result and ai_result.get("impact_score", 0) >= 0.7:
+                await create_alerts_for_news(news_data, ai_result)
 
         except Exception as e:
             print(f"❌ 뉴스 처리 오류: {str(e)}")

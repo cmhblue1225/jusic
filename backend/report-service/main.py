@@ -23,19 +23,25 @@ load_dotenv()
 app = FastAPI(title="Report Service", version="1.0.0")
 
 # CORS 설정 (프로덕션 도메인 명시)
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://jusik.minhyuk.kr",
-    "https://www.jusik.minhyuk.kr",
-    "*"  # 폴백: 모든 도메인 허용
-]
+# 환경 변수 ALLOWED_ORIGINS가 설정되어 있으면 사용, 아니면 기본값
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if allowed_origins_env:
+    ALLOWED_ORIGINS = [origin.strip() for origin in allowed_origins_env.split(",")]
+else:
+    ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://jusik.minhyuk.kr",
+        "https://www.jusik.minhyuk.kr",
+    ]
+
+print(f"🔐 CORS 허용 도메인: {ALLOWED_ORIGINS}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],  # 임시로 모든 도메인 허용 (CORS 디버깅)
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
