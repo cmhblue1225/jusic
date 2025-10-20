@@ -26,14 +26,58 @@ body.extra-large-font {
   font-size: 24px;
 }
 
-/* 고대비 모드 */
-body.high-contrast {
-  background-color: black;
-  color: white;
+/* 다크 모드 */
+html.dark body {
+  background-color: #1a202c;
+  color: #f7fafc;
 }
 
-body.high-contrast a {
-  color: rgb(250 204 21);
+html.dark .card {
+  background-color: #2d3748;
+  color: #f7fafc;
+}
+
+html.dark .input {
+  background-color: #2d3748;
+  border-color: #4a5568;
+  color: #f7fafc;
+}
+
+html.dark .btn-secondary {
+  background-color: #4a5568;
+  color: #f7fafc;
+}
+
+html.dark .btn-secondary:hover {
+  background-color: #2d3748;
+}
+
+/* 고대비 모드 */
+html.high-contrast body {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  filter: contrast(1.5);
+}
+
+html.high-contrast .card {
+  background-color: #000000 !important;
+  border: 2px solid #ffffff !important;
+  color: #ffffff !important;
+}
+
+html.high-contrast .input {
+  background-color: #000000 !important;
+  border: 2px solid #ffffff !important;
+  color: #ffffff !important;
+}
+
+html.high-contrast a {
+  color: rgb(250 204 21) !important;
+  text-decoration: underline;
+}
+
+html.high-contrast .btn {
+  border: 2px solid #ffffff !important;
 }
 
 /* 터치 친화적 버튼 */
