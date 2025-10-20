@@ -9,6 +9,9 @@ AI Ensemble 시스템
 - 뉴스 7일 50개 전체 트렌드 분석
 - 애널리스트 컨센서스 반영
 - 업종/시장 맥락 추가
+
+🔥 Phase 3.2 개선사항:
+- 리스크 점수 정량화 (0-100) - 뉴스/변동성/재무/시장/유동성 5개 카테고리
 """
 import os
 import json
@@ -17,6 +20,7 @@ from typing import Dict, List, Any, Optional
 from collections import Counter
 from openai import AsyncOpenAI
 import anthropic
+from risk_score_calculator import calculate_total_risk_score  # 🔥 Phase 3.2
 
 # OpenAI 클라이언트 초기화 (지연 초기화)
 _openai_client = None
@@ -165,12 +169,46 @@ async def analyze_with_gpt4(
 ) -> Optional[Dict[str, Any]]:
     """
     🔥 Phase 1.3 개선: GPT-4 Turbo 기반 종목 분석 (뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
+    🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
     """
     # 🔥 Phase 1.3: 뉴스 트렌드 분석 (7일 50개 전체 분석)
     news_trend = analyze_news_trend(news_data)
+
+    # 🔥 Phase 3.2: 리스크 점수 계산 (0-100 정량화)
+    stock_info = {
+        "current_price": price_data.get("current_price"),
+        "week52_high": price_data.get("week52_high"),
+        "week52_low": price_data.get("week52_low"),
+        "avg_volume": price_data.get("avg_volume"),
+        "current_volume": price_data.get("volume"),
+        "per": financial_data.get("per") if financial_data else None,
+        "pbr": financial_data.get("pbr") if financial_data else None,
+        "roe": financial_data.get("roe") if financial_data else None,
+        "debt_ratio": financial_data.get("debt_ratio") if financial_data else None,
+        "operating_margin": financial_data.get("operating_margin") if financial_data else None,
+        "market_cap": price_data.get("market_cap"),
+        "free_float": None,  # TODO: 추후 KIS API에서 추가
+        "technical_indicators": {
+            "rsi": price_data.get("rsi"),
+            "bollinger_position": None  # TODO: 추후 계산 추가
+        }
+    }
+
+    market_data_dict = {
+        "kospi_change": market_index.get("kospi_change_rate") if market_index else None,
+        "sector_relative_strength": None,  # TODO: 추후 계산 추가
+        "foreign_ownership_change": None,  # TODO: 추후 추가
+        "program_trading_net": program_trading[0].get("program_net_buy") if program_trading else None
+    }
+
+    risk_score_result = calculate_total_risk_score(
+        news_trend=news_trend,
+        stock_info=stock_info,
+        market_data=market_data_dict
+    )
 
     # 고영향도 뉴스 텍스트 생성
     high_impact_lines = []
@@ -196,6 +234,16 @@ async def analyze_with_gpt4(
 
 🔥 고영향도 뉴스 (impact ≥ 0.7):
 {high_impact_text}
+
+🔥 Phase 3.2: 정량적 리스크 점수 (0-100)
+총 리스크 점수: {risk_score_result['total_score']:.1f}/100 (위험도: {risk_score_result['risk_level'].upper()})
+세부 분석:
+  - 뉴스 감성 리스크: {risk_score_result['breakdown']['news_sentiment']:.1f}/30
+  - 변동성 리스크: {risk_score_result['breakdown']['volatility']:.1f}/25
+  - 재무 리스크: {risk_score_result['breakdown']['financial']:.1f}/20
+  - 시장 리스크: {risk_score_result['breakdown']['market']:.1f}/15
+  - 유동성 리스크: {risk_score_result['breakdown']['liquidity']:.1f}/10
+설명: {risk_score_result['description']}
 """
 
     # 2. 재무 데이터 텍스트 생성
@@ -322,6 +370,7 @@ async def analyze_with_gpt4(
 {{
   "summary": "종합 요약 (3~5문장)",
   "risk_level": "위험도 ('low', 'medium', 'high')",
+  "risk_score": "리스크 점수 (0~100, 숫자만, 위 정량적 리스크 점수를 참고하되 독립적 판단)",
   "recommendation": "투자 권고 ('buy', 'sell', 'hold')",
   "evaluation_score": "평가 점수 (0~100, 숫자만)",
   "reasoning": "판단 근거 (2~3문장)",
@@ -354,20 +403,24 @@ async def analyze_with_gpt4(
   }}
 }}
 
-**🔥 Phase 1.3 + 3.1 개선된 분석 가이드라인:**
+**🔥 Phase 1.3 + 3.1 + 3.2 개선된 분석 가이드라인:**
 1. **뉴스 트렌드 반영**: 7일간의 뉴스 감성 변화(개선/악화/불변), 고영향도 뉴스, 트렌딩 키워드를 종합 판단에 반드시 포함하세요.
 2. **애널리스트 컨센서스**: 증권사 애널리스트들의 의견 분포와 평균 목표가를 참고하세요. 다만 이것은 참고사항이며, 당신의 독립적 판단이 우선입니다.
 3. **업종/시장 맥락**: 코스피 대비 상대 강도를 분석하고, 시장 흐름 대비 종목의 강약을 평가하세요.
 4. **고급 매매 동향**: 신용잔고, 공매도, 프로그램매매, 당일 외국인/기관 순매수액을 종합하여 단기 수급을 판단하세요.
-5. **위험도 평가**: 변동성, 뉴스 부정도(negative_ratio), 볼린저 밴드 이탈, 부채비율, 공매도 잔고 증가 여부를 고려하세요.
-6. **투자 권고**: 기술적 지표, 뉴스 트렌드, 애널리스트 컨센서스, 투자자 동향을 종합하여 결정하세요.
-7. **평가 점수**: 모든 데이터를 종합한 절대 점수(0~100)입니다. 데이터가 많을수록 더 정확하게 평가할 수 있습니다.
-8. **🆕 멀티 타임프레임 분석** (Phase 3.1):
+5. **🆕 정량적 리스크 점수 활용** (Phase 3.2):
+   - 위에 제공된 **정량적 리스크 점수**는 5개 카테고리(뉴스/변동성/재무/시장/유동성)로 세분화된 객관적 지표입니다.
+   - 이를 참고하되, AI 자체 판단으로 risk_score (0~100)를 산출하세요. 시스템 점수와 다를 수 있습니다.
+   - 예: 시스템 점수가 45점이지만, 최근 대형 호재가 있다면 AI는 35점으로 낮출 수 있습니다.
+6. **위험도 평가**: 변동성, 뉴스 부정도(negative_ratio), 볼린저 밴드 이탈, 부채비율, 공매도 잔고 증가 여부를 고려하세요.
+7. **투자 권고**: 기술적 지표, 뉴스 트렌드, 애널리스트 컨센서스, 투자자 동향을 종합하여 결정하세요.
+8. **평가 점수**: 모든 데이터를 종합한 절대 점수(0~100)입니다. 데이터가 많을수록 더 정확하게 평가할 수 있습니다.
+9. **멀티 타임프레임 분석** (Phase 3.1):
    - **단기 (1주~1개월)**: RSI, MACD, 볼린저밴드 등 기술적 지표 중심. 진입가/목표가/손절가를 구체적 숫자로 제시.
    - **중기 (1~3개월)**: 실적 발표, 업종 트렌드, 애널리스트 컨센서스 반영. 목표가 제시.
    - **장기 (6개월~1년)**: 펀더멘털(PER/PBR/ROE), 성장성, 경쟁력 분석. 장기 목표가 제시.
-9. **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
-10. 반드시 JSON 형식으로만 응답하세요.
+10. **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
+11. 반드시 JSON 형식으로만 응답하세요.
 """
 
     try:
@@ -392,6 +445,7 @@ async def analyze_with_gpt4(
             "model": "gpt-4-turbo",
             "summary": ai_response.get("summary", ""),
             "risk_level": ai_response.get("risk_level", "medium").lower(),
+            "risk_score": float(ai_response.get("risk_score", risk_score_result['total_score'])),  # 🔥 Phase 3.2
             "recommendation": ai_response.get("recommendation", "hold").lower(),
             "evaluation_score": float(ai_response.get("evaluation_score", 50)),
             "reasoning": ai_response.get("reasoning", ""),
@@ -406,6 +460,9 @@ async def analyze_with_gpt4(
             "risk_factors": ai_response.get("risk_factors", ""),
             # 🔥 Phase 3.1: 멀티 타임프레임 분석 추가
             "timeframe_analysis": ai_response.get("timeframe_analysis", {}),
+            # 🔥 Phase 3.2: 정량적 리스크 점수 세부 정보 추가
+            "risk_score_breakdown": risk_score_result['breakdown'],
+            "risk_score_description": risk_score_result['description'],
             "raw_response": ai_response
         }
 
@@ -416,6 +473,9 @@ async def analyze_with_gpt4(
             result["recommendation"] = "hold"
         if not (0 <= result["evaluation_score"] <= 100):
             result["evaluation_score"] = 50.0
+        # 🔥 Phase 3.2: risk_score 검증
+        if not (0 <= result["risk_score"] <= 100):
+            result["risk_score"] = risk_score_result['total_score']
 
         print(f"✅ [GPT-4] 분석 완료: {result['recommendation']} (점수: {result['evaluation_score']})")
         return result
@@ -442,12 +502,46 @@ async def analyze_with_claude(
 ) -> Optional[Dict[str, Any]]:
     """
     🔥 Phase 1.3 개선: Claude 3.5 Sonnet 기반 종목 분석 (리스크 분석 전문가, 뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
+    🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
     """
     # 🔥 Phase 1.3: 뉴스 트렌드 분석 (7일 50개 전체 분석)
     news_trend = analyze_news_trend(news_data)
+
+    # 🔥 Phase 3.2: 리스크 점수 계산 (0-100 정량화)
+    stock_info = {
+        "current_price": price_data.get("current_price"),
+        "week52_high": price_data.get("week52_high"),
+        "week52_low": price_data.get("week52_low"),
+        "avg_volume": price_data.get("avg_volume"),
+        "current_volume": price_data.get("volume"),
+        "per": financial_data.get("per") if financial_data else None,
+        "pbr": financial_data.get("pbr") if financial_data else None,
+        "roe": financial_data.get("roe") if financial_data else None,
+        "debt_ratio": financial_data.get("debt_ratio") if financial_data else None,
+        "operating_margin": financial_data.get("operating_margin") if financial_data else None,
+        "market_cap": price_data.get("market_cap"),
+        "free_float": None,  # TODO: 추후 KIS API에서 추가
+        "technical_indicators": {
+            "rsi": price_data.get("rsi"),
+            "bollinger_position": None  # TODO: 추후 계산 추가
+        }
+    }
+
+    market_data_dict = {
+        "kospi_change": market_index.get("kospi_change_rate") if market_index else None,
+        "sector_relative_strength": None,  # TODO: 추후 계산 추가
+        "foreign_ownership_change": None,  # TODO: 추후 추가
+        "program_trading_net": program_trading[0].get("program_net_buy") if program_trading else None
+    }
+
+    risk_score_result = calculate_total_risk_score(
+        news_trend=news_trend,
+        stock_info=stock_info,
+        market_data=market_data_dict
+    )
 
     # 고영향도 뉴스 텍스트 생성
     high_impact_lines = []
@@ -473,6 +567,16 @@ async def analyze_with_claude(
 
 🔥 고영향도 뉴스 (impact ≥ 0.7):
 {high_impact_text}
+
+🔥 Phase 3.2: 정량적 리스크 점수 (0-100)
+총 리스크 점수: {risk_score_result['total_score']:.1f}/100 (위험도: {risk_score_result['risk_level'].upper()})
+세부 분석:
+  - 뉴스 감성 리스크: {risk_score_result['breakdown']['news_sentiment']:.1f}/30
+  - 변동성 리스크: {risk_score_result['breakdown']['volatility']:.1f}/25
+  - 재무 리스크: {risk_score_result['breakdown']['financial']:.1f}/20
+  - 시장 리스크: {risk_score_result['breakdown']['market']:.1f}/15
+  - 유동성 리스크: {risk_score_result['breakdown']['liquidity']:.1f}/10
+설명: {risk_score_result['description']}
 """
 
     # 2. 재무 데이터 텍스트 생성
@@ -595,6 +699,7 @@ async def analyze_with_claude(
 {{
   "summary": "종합 요약 (3~5문장, 리스크 중심)",
   "risk_level": "위험도 ('low', 'medium', 'high')",
+  "risk_score": "리스크 점수 (0~100, 숫자만, 위 정량적 리스크 점수를 참고하되 독립적 판단)",
   "recommendation": "투자 권고 ('buy', 'sell', 'hold')",
   "evaluation_score": "평가 점수 (0~100, 숫자만)",
   "reasoning": "판단 근거 (2~3문장, 리스크 요인 강조)",
@@ -627,16 +732,20 @@ async def analyze_with_claude(
   }}
 }}
 
-**🔥 Phase 1.3 개선된 리스크 중심 분석 가이드라인:**
-1. **뉴스 리스크 평가**: 7일간 뉴스 부정 비율이 높거나(>50%), 고영향도 부정 뉴스가 많으면 위험도를 높이세요. 최근 감성이 악화되었다면 더욱 주의하세요.
-2. **공매도/신용 리스크**: 공매도 잔고 증가는 하방 압력 신호입니다. 신용잔고 급증은 변동성 확대 가능성을 의미합니다.
-3. **변동성 지표**: ATR, 볼린저 밴드 이탈, Williams %R을 종합하여 변동성을 평가하세요.
-4. **애널리스트 vs 실제**: 애널리스트 컨센서스가 낙관적이어도, 실제 매매 동향(외국인/기관 순매도)이 부정적이면 리스크를 강조하세요.
-5. **시장 대비 약세**: 코스피가 상승하는데 종목이 하락하면 상대적 약세로 판단하고 원인을 분석하세요.
-6. **부채비율 경고**: 부채비율이 200% 이상이면 재무 리스크를 명시적으로 언급하세요.
-7. **평가 점수**: 리스크가 클수록 보수적으로 책정하세요. 데이터가 풍부할수록 정확도가 높아집니다.
-8. **심화 분석 필드는 필수**입니다. 리스크 요인을 구체적으로 나열하세요.
-9. 반드시 JSON 형식으로만 응답하세요.
+**🔥 Phase 1.3 + 3.2 개선된 리스크 중심 분석 가이드라인:**
+1. **🆕 정량적 리스크 점수 활용** (Phase 3.2):
+   - 위에 제공된 **정량적 리스크 점수**는 5개 카테고리(뉴스/변동성/재무/시장/유동성)로 세분화된 객관적 지표입니다.
+   - 이를 참고하되, AI 자체 판단으로 risk_score (0~100)를 산출하세요. 시스템 점수와 다를 수 있습니다.
+   - 예: 시스템 점수가 45점이지만, 최근 대형 호재가 있다면 AI는 35점으로 낮출 수 있습니다.
+2. **뉴스 리스크 평가**: 7일간 뉴스 부정 비율이 높거나(>50%), 고영향도 부정 뉴스가 많으면 위험도를 높이세요. 최근 감성이 악화되었다면 더욱 주의하세요.
+3. **공매도/신용 리스크**: 공매도 잔고 증가는 하방 압력 신호입니다. 신용잔고 급증은 변동성 확대 가능성을 의미합니다.
+4. **변동성 지표**: ATR, 볼린저 밴드 이탈, Williams %R을 종합하여 변동성을 평가하세요.
+5. **애널리스트 vs 실제**: 애널리스트 컨센서스가 낙관적이어도, 실제 매매 동향(외국인/기관 순매도)이 부정적이면 리스크를 강조하세요.
+6. **시장 대비 약세**: 코스피가 상승하는데 종목이 하락하면 상대적 약세로 판단하고 원인을 분석하세요.
+7. **부채비율 경고**: 부채비율이 200% 이상이면 재무 리스크를 명시적으로 언급하세요.
+8. **평가 점수**: 리스크가 클수록 보수적으로 책정하세요. 데이터가 풍부할수록 정확도가 높아집니다.
+9. **심화 분석 필드는 필수**입니다. 리스크 요인을 구체적으로 나열하세요.
+10. 반드시 JSON 형식으로만 응답하세요.
 """
 
     try:
@@ -669,6 +778,7 @@ async def analyze_with_claude(
             "model": "claude-3.5-sonnet",
             "summary": ai_response.get("summary", ""),
             "risk_level": ai_response.get("risk_level", "medium").lower(),
+            "risk_score": float(ai_response.get("risk_score", risk_score_result['total_score'])),  # 🔥 Phase 3.2
             "recommendation": ai_response.get("recommendation", "hold").lower(),
             "evaluation_score": float(ai_response.get("evaluation_score", 50)),
             "reasoning": ai_response.get("reasoning", ""),
@@ -683,6 +793,9 @@ async def analyze_with_claude(
             "risk_factors": ai_response.get("risk_factors", ""),
             # 🔥 Phase 3.1: 멀티 타임프레임 분석 추가
             "timeframe_analysis": ai_response.get("timeframe_analysis", {}),
+            # 🔥 Phase 3.2: 정량적 리스크 점수 세부 정보 추가
+            "risk_score_breakdown": risk_score_result['breakdown'],
+            "risk_score_description": risk_score_result['description'],
             "raw_response": ai_response
         }
 
@@ -693,6 +806,9 @@ async def analyze_with_claude(
             result["recommendation"] = "hold"
         if not (0 <= result["evaluation_score"] <= 100):
             result["evaluation_score"] = 50.0
+        # 🔥 Phase 3.2: risk_score 검증
+        if not (0 <= result["risk_score"] <= 100):
+            result["risk_score"] = risk_score_result['total_score']
 
         print(f"✅ [Claude] 분석 완료: {result['recommendation']} (점수: {result['evaluation_score']})")
         return result
