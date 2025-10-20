@@ -1,10 +1,16 @@
 """
 Report Service - FastAPI 서버
 종목 레포트 생성 및 조회 API
+- AI Ensemble (GPT-4 + Claude) 지원
+- 고급 기술적 지표 (RSI, MACD, Stochastic 등 22개)
+- 호가/체결 데이터 통합
+- 섹터 비교 분석
+- API Rate Limiting
 """
 import os
 import sys
 import traceback
+import asyncio
 from datetime import datetime, date
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header, Response
@@ -32,6 +38,17 @@ try:
     print("  ✅ technical 모듈")
     from ai_analyzer import analyze_stock
     print("  ✅ ai_analyzer 모듈")
+
+    # 🔥 신규 모듈 임포트
+    from ai_ensemble import analyze_with_ensemble
+    print("  ✅ ai_ensemble 모듈 (GPT-4 + Claude)")
+    from kis_data_advanced import get_advanced_stock_data
+    print("  ✅ kis_data_advanced 모듈 (호가/체결)")
+    from sector_analysis import compare_with_sector, detect_sector_rotation
+    print("  ✅ sector_analysis 모듈 (섹터 비교)")
+    from rate_limiter import rate_limited_kis_request
+    print("  ✅ rate_limiter 모듈 (API Rate Limit)")
+
     print("✅ 모든 모듈 임포트 완료")
 except Exception as e:
     print(f"❌ 모듈 임포트 실패: {str(e)}")
@@ -42,7 +59,7 @@ except Exception as e:
 print("📦 FastAPI 앱 초기화 중...")
 app = FastAPI(
     title="Report Service",
-    version="1.0.1",
+    version="2.0.0",  # 🔥 Major Update: AI Ensemble + Advanced Indicators
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -172,7 +189,14 @@ async def health():
         "status": "ok",
         "service": "report-service",
         "cors": "enabled",
-        "version": "1.0.1"
+        "version": "2.0.0",
+        "features": {
+            "ai_ensemble": True,
+            "advanced_indicators": True,
+            "order_book": True,
+            "rate_limiting": True,
+            "parallel_processing": True
+        }
     }
 
 
@@ -226,9 +250,11 @@ async def generate_report(
         return {**cached_report, "cached": True}
 
     try:
-        # 2. 주가 데이터 조회 (60일 - 이평선 60일 계산용)
-        print(f"📈 주가 데이터 조회 중...")
-        ohlcv_data = await get_daily_ohlcv(symbol, days=60)
+        # 2. 병렬 데이터 조회 (asyncio.gather 사용)
+        print(f"📈 데이터 조회 시작 (병렬 처리)...")
+
+        # 2-1. 필수 데이터 (OHLCV) 먼저 조회
+        ohlcv_data = await rate_limited_kis_request(get_daily_ohlcv, symbol, days=60)
 
         if not ohlcv_data or len(ohlcv_data) < 20:
             raise HTTPException(
@@ -236,51 +262,83 @@ async def generate_report(
                 detail=f"주가 데이터가 부족합니다. (최소 20일 필요, 현재: {len(ohlcv_data)}일)"
             )
 
-        # 3. 기술적 지표 계산
-        print(f"📊 기술적 지표 계산 중...")
-        indicators = calculate_all_indicators(ohlcv_data)
+        # 2-2. 병렬로 조회할 데이터 정의
+        async def safe_get_financial():
+            try:
+                return await rate_limited_kis_request(get_financial_ratio, symbol)
+            except Exception as e:
+                print(f"⚠️ 재무비율 조회 실패: {str(e)}")
+                return {}
 
-        # 3-1. 재무비율 조회 (PER, PBR, ROE 등)
-        print(f"💰 재무비율 조회 중...")
-        try:
-            financial_data = await get_financial_ratio(symbol)
-        except Exception as e:
-            print(f"⚠️ 재무비율 조회 실패 (계속 진행): {str(e)}")
-            financial_data = {}
+        async def safe_get_investor():
+            try:
+                return await rate_limited_kis_request(get_investor_trend, symbol)
+            except Exception as e:
+                print(f"⚠️ 투자자 동향 조회 실패: {str(e)}")
+                return {}
 
-        # 3-2. 투자자 매매 동향 조회 (외국인, 기관)
-        print(f"📊 투자자 동향 조회 중...")
-        try:
-            investor_data = await get_investor_trend(symbol)
-        except Exception as e:
-            print(f"⚠️ 투자자 동향 조회 실패 (계속 진행): {str(e)}")
-            investor_data = {}
+        async def safe_get_advanced():
+            try:
+                return await rate_limited_kis_request(get_advanced_stock_data, symbol)
+            except Exception as e:
+                print(f"⚠️ 고급 데이터 조회 실패: {str(e)}")
+                return {}
 
-        # 4. 관련 뉴스 조회 (최근 1일)
-        print(f"📰 관련 뉴스 조회 중...")
-        news_result = supabase.table("news") \
-            .select("id, title, summary, sentiment_score, impact_score, published_at") \
-            .contains("related_symbols", [symbol]) \
-            .gte("published_at", datetime.now().replace(hour=0, minute=0, second=0).isoformat()) \
-            .order("published_at", desc=True) \
-            .limit(10) \
-            .execute()
+        async def safe_get_news():
+            try:
+                news_result = supabase.table("news") \
+                    .select("id, title, summary, sentiment_score, impact_score, published_at") \
+                    .contains("related_symbols", [symbol]) \
+                    .gte("published_at", datetime.now().replace(hour=0, minute=0, second=0).isoformat()) \
+                    .order("published_at", desc=True) \
+                    .limit(10) \
+                    .execute()
+                return news_result.data or []
+            except Exception as e:
+                print(f"⚠️ 뉴스 조회 실패: {str(e)}")
+                return []
 
-        news_data = news_result.data or []
-        print(f"   → {len(news_data)}개 뉴스 발견")
-
-        # 5. AI 분석 (재무 데이터 및 투자자 동향 포함)
-        print(f"🤖 AI 분석 시작...")
-        ai_result = await analyze_stock(
-            symbol,
-            symbol_name,
-            indicators,
-            news_data,
-            financial_data=financial_data,
-            investor_data=investor_data
+        # 병렬 실행 (asyncio.gather)
+        financial_data, investor_data, advanced_data, news_data = await asyncio.gather(
+            safe_get_financial(),
+            safe_get_investor(),
+            safe_get_advanced(),
+            safe_get_news()
         )
 
-        # 6. 레포트 데이터 구성
+        print(f"✅ 데이터 조회 완료 (병렬 처리)")
+        print(f"   - 뉴스: {len(news_data)}개")
+        print(f"   - 고급 데이터: {'✅' if advanced_data else '❌'}")
+
+        # 3. 기술적 지표 계산 (고급 지표 포함)
+        print(f"📊 기술적 지표 계산 중 (22개 지표)...")
+        indicators = calculate_all_indicators(ohlcv_data, include_advanced=True)
+
+        # 4. AI 앙상블 분석 (GPT-4 + Claude)
+        print(f"🤖 AI Ensemble 분석 시작...")
+        use_ensemble = os.getenv("USE_AI_ENSEMBLE", "true").lower() == "true"
+
+        if use_ensemble:
+            ai_result = await analyze_with_ensemble(
+                symbol,
+                symbol_name,
+                indicators,
+                news_data,
+                financial_data=financial_data,
+                investor_data=investor_data
+            )
+        else:
+            # 폴백: 단일 모델 (GPT-4)
+            ai_result = await analyze_stock(
+                symbol,
+                symbol_name,
+                indicators,
+                news_data,
+                financial_data=financial_data,
+                investor_data=investor_data
+            )
+
+        # 5. 레포트 데이터 구성
         report = {
             # 기본 정보
             "symbol": symbol,
@@ -295,7 +353,7 @@ async def generate_report(
             "avg_price": indicators["avg"],
             "volume": indicators["volume"],
 
-            # 기술적 지표
+            # 기본 기술적 지표 (7개)
             "ma5": indicators.get("ma5"),
             "ma20": indicators.get("ma20"),
             "ma60": indicators.get("ma60"),
@@ -304,7 +362,25 @@ async def generate_report(
             "bollinger_upper": indicators.get("bollinger_upper"),
             "bollinger_lower": indicators.get("bollinger_lower"),
 
-            # 재무비율 (신규)
+            # 🔥 고급 기술적 지표 (15개 - 신규)
+            "rsi": indicators.get("rsi"),
+            "macd": indicators.get("macd"),
+            "macd_signal": indicators.get("macd_signal"),
+            "macd_histogram": indicators.get("macd_histogram"),
+            "stochastic_k": indicators.get("stochastic_k"),
+            "stochastic_d": indicators.get("stochastic_d"),
+            "williams_r": indicators.get("williams_r"),
+            "cci": indicators.get("cci"),
+            "adx": indicators.get("adx"),
+            "obv": indicators.get("obv"),
+            "mfi": indicators.get("mfi"),
+            "vwap": indicators.get("vwap"),
+            "atr": indicators.get("atr"),
+            "keltner_upper": indicators.get("keltner_upper"),
+            "keltner_middle": indicators.get("keltner_middle"),
+            "keltner_lower": indicators.get("keltner_lower"),
+
+            # 재무비율
             "per": financial_data.get("per"),
             "pbr": financial_data.get("pbr"),
             "roe": financial_data.get("roe"),
@@ -315,7 +391,7 @@ async def generate_report(
             "net_margin": financial_data.get("net_margin"),
             "debt_ratio": financial_data.get("debt_ratio"),
 
-            # 투자자 동향 (신규)
+            # 투자자 동향
             "foreign_net_buy": investor_data.get("foreign_net_buy"),
             "foreign_net_buy_amt": investor_data.get("foreign_net_buy_amt"),
             "institution_net_buy": investor_data.get("institution_net_buy"),
@@ -323,13 +399,21 @@ async def generate_report(
             "individual_net_buy": investor_data.get("individual_net_buy"),
             "individual_net_buy_amt": investor_data.get("individual_net_buy_amt"),
 
-            # AI 분석 결과
+            # 🔥 고급 데이터 (호가/체결 - 신규)
+            "order_book": advanced_data.get("order_book", {}),
+            "execution": advanced_data.get("execution", {}),
+
+            # AI Ensemble 분석 결과
             "summary": ai_result["summary"],
             "risk_level": ai_result["risk_level"],
             "recommendation": ai_result["recommendation"],
             "evaluation_score": ai_result["evaluation_score"],
 
-            # AI 분석 확장 (신규 - GPT-4)
+            # 🔥 AI Ensemble 메타데이터 (신규)
+            "confidence_score": ai_result.get("confidence_score", 50.0),  # 앙상블 신뢰도
+            "model_agreement": ai_result.get("model_agreement", {}),      # 모델별 결과
+
+            # AI 분석 확장
             "investment_strategy": ai_result.get("investment_strategy", ""),
             "risk_factors": ai_result.get("risk_factors", ""),
             "catalysts": ai_result.get("catalysts", ""),
@@ -343,7 +427,9 @@ async def generate_report(
             "related_news_count": len(news_data),
 
             # 메타데이터
-            "cached": False
+            "cached": False,
+            "ai_model": "ensemble" if use_ensemble else "gpt-4",
+            "indicators_count": 22  # 기본 7개 + 고급 15개
         }
 
         # 7. Redis 캐싱

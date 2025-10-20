@@ -103,9 +103,9 @@ def calculate_bollinger_bands(prices: List[float], period: int = 20, num_std: fl
     }
 
 
-def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]], include_advanced: bool = True) -> Dict[str, Any]:
     """
-    모든 기술적 지표 계산
+    모든 기술적 지표 계산 (기본 + 고급)
 
     Args:
         ohlcv_data: OHLCV 데이터 리스트
@@ -115,6 +115,7 @@ def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]]) -> Dict[str, Any]
             - low: 저가
             - close: 종가
             - volume: 거래량
+        include_advanced: 고급 지표 포함 여부 (기본: True)
 
     Returns:
         Dict: 모든 기술적 지표
@@ -131,6 +132,19 @@ def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]]) -> Dict[str, Any]
             - volatility: 변동성 (표준편차)
             - bollinger_upper: 볼린저 상단
             - bollinger_lower: 볼린저 하단
+
+            [고급 지표 - include_advanced=True 시]
+            - rsi: RSI (14일)
+            - macd, macd_signal, macd_histogram: MACD
+            - stochastic_k, stochastic_d: Stochastic
+            - williams_r: Williams %R
+            - cci: CCI
+            - adx: ADX
+            - obv: OBV
+            - mfi: MFI
+            - vwap: VWAP
+            - atr: ATR
+            - keltner_upper, keltner_middle, keltner_lower: Keltner Channel
     """
     if not ohlcv_data:
         raise ValueError("OHLCV 데이터가 비어 있습니다")
@@ -152,7 +166,7 @@ def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]]) -> Dict[str, Any]
     # 당일 평균가 (고가 + 저가 + 종가) / 3
     avg_price = (latest["high"] + latest["low"] + latest["close"]) / 3
 
-    # 기술적 지표 계산
+    # 기본 기술적 지표 계산
     indicators = {
         # 기본 주가 데이터
         "current_price": latest["close"],
@@ -183,9 +197,18 @@ def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]]) -> Dict[str, Any]
         indicators["bollinger_upper"] = None
         indicators["bollinger_lower"] = None
 
+    # 고급 지표 추가
+    if include_advanced:
+        try:
+            from technical_advanced import calculate_all_advanced_indicators
+            advanced_indicators = calculate_all_advanced_indicators(ohlcv_data)
+            indicators.update(advanced_indicators)
+        except Exception as e:
+            print(f"⚠️ 고급 지표 계산 실패 (기본 지표는 정상): {str(e)}")
+
     # None 값을 반올림 (소수점 2자리)
     for key, value in indicators.items():
-        if value is not None and key not in ["current_price", "high", "low", "avg", "volume"]:
+        if value is not None and key not in ["current_price", "high", "low", "avg", "volume", "obv"]:
             if isinstance(value, float):
                 indicators[key] = round(value, 2)
 
@@ -194,5 +217,7 @@ def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]]) -> Dict[str, Any]
     print(f"   - MA5: {indicators['ma5']} / MA20: {indicators['ma20']} / MA60: {indicators['ma60']}")
     print(f"   - 거래량 비율: {indicators['volume_ratio']}")
     print(f"   - 변동성: {indicators['volatility']}")
+    if include_advanced and indicators.get('rsi'):
+        print(f"   - RSI: {indicators.get('rsi')} / MACD: {indicators.get('macd')} / ADX: {indicators.get('adx')}")
 
     return indicators

@@ -241,6 +241,10 @@ async def get_financial_ratio(symbol: str) -> Dict[str, Any]:
 
         output = data.get("output", {})
 
+        # output이 list인 경우 첫 번째 요소 사용
+        if isinstance(output, list):
+            output = output[0] if output else {}
+
         # 안전한 float 변환 (빈 문자열이나 None 처리)
         def safe_float(value, default=None):
             try:
@@ -308,6 +312,10 @@ async def get_investor_trend(symbol: str) -> Dict[str, Any]:
             raise Exception(f"KIS API 오류: {error_msg}")
 
         output = data.get("output", {})
+
+        # output이 list인 경우 첫 번째 요소 사용
+        if isinstance(output, list):
+            output = output[0] if output else {}
 
         # 안전한 int/float 변환
         def safe_int(value, default=0):
