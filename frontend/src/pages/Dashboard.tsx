@@ -207,6 +207,9 @@ export default function Dashboard() {
             <button onClick={() => navigate('/report')} className="btn btn-primary">
               📊 AI 종목 레포트
             </button>
+            <button onClick={() => navigate('/bookmarks')} className="btn btn-primary">
+              📌 저장된 레포트
+            </button>
             <button onClick={() => navigate('/statistics')} className="btn btn-primary">
               📈 수익률 통계
             </button>

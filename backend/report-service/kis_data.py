@@ -190,3 +190,146 @@ async def get_current_price(symbol: str) -> Dict[str, Any]:
 
         print(f"✅ {symbol} 현재가: {result['price']:,}원 ({result['change_rate']:+.2f}%)")
         return result
+
+
+async def get_financial_ratio(symbol: str) -> Dict[str, Any]:
+    """
+    재무비율 조회 (PER, PBR, ROE, 배당수익률 등)
+
+    Args:
+        symbol: 종목 코드 (6자리)
+
+    Returns:
+        Dict: 재무비율 정보
+            - per: PER (주가수익비율)
+            - pbr: PBR (주가순자산비율)
+            - roe: ROE (자기자본이익률, %)
+            - dividend_yield: 배당수익률 (%)
+            - eps: EPS (주당순이익)
+            - bps: BPS (주당순자산)
+            - operating_margin: 영업이익률 (%)
+            - net_margin: 순이익률 (%)
+            - debt_ratio: 부채비율 (%)
+    """
+    token = await get_access_token()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/finance/financial-ratio",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHKST66430300"  # 국내주식 재무비율
+            },
+            params={
+                "FID_DIV_CLS_CODE": "0",    # 분류 (0: 전체)
+                "fid_cond_mrkt_div_code": "J",  # 시장 분류 (J: 주식)
+                "fid_input_iscd": symbol    # 종목 코드
+            }
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"KIS API 재무비율 조회 실패: {response.status_code} {response.text}")
+
+        data = response.json()
+
+        if data.get("rt_cd") != "0":
+            error_msg = data.get("msg1", "알 수 없는 오류")
+            raise Exception(f"KIS API 오류: {error_msg}")
+
+        output = data.get("output", {})
+
+        # 안전한 float 변환 (빈 문자열이나 None 처리)
+        def safe_float(value, default=None):
+            try:
+                return float(value) if value and str(value).strip() else default
+            except (ValueError, TypeError):
+                return default
+
+        result = {
+            "per": safe_float(output.get("per")),                          # PER
+            "pbr": safe_float(output.get("pbr")),                          # PBR
+            "roe": safe_float(output.get("roe")),                          # ROE (%)
+            "dividend_yield": safe_float(output.get("per_xstk_yldd")),     # 배당수익률 (%)
+            "eps": safe_float(output.get("eps")),                          # EPS (주당순이익)
+            "bps": safe_float(output.get("bps")),                          # BPS (주당순자산)
+            "operating_margin": safe_float(output.get("bsop_prfi_inrt")), # 영업이익률 (%)
+            "net_margin": safe_float(output.get("ntin_inrt")),            # 순이익률 (%)
+            "debt_ratio": safe_float(output.get("debt_rate"))             # 부채비율 (%)
+        }
+
+        print(f"✅ {symbol} 재무비율: PER={result['per']}, PBR={result['pbr']}, ROE={result['roe']}%")
+        return result
+
+
+async def get_investor_trend(symbol: str) -> Dict[str, Any]:
+    """
+    투자자별 매매 동향 조회 (외국인, 기관, 개인)
+
+    Args:
+        symbol: 종목 코드 (6자리)
+
+    Returns:
+        Dict: 투자자별 매매 동향
+            - foreign_net_buy: 외국인 순매수 (주)
+            - foreign_net_buy_amt: 외국인 순매수금액 (원)
+            - institution_net_buy: 기관 순매수 (주)
+            - institution_net_buy_amt: 기관 순매수금액 (원)
+            - individual_net_buy: 개인 순매수 (주)
+            - individual_net_buy_amt: 개인 순매수금액 (원)
+    """
+    token = await get_access_token()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{KIS_BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-investor",
+            headers={
+                "Content-Type": "application/json; charset=utf-8",
+                "authorization": f"Bearer {token}",
+                "appkey": KIS_APP_KEY,
+                "appsecret": KIS_APP_SECRET,
+                "tr_id": "FHKST01010900"  # 주식현재가 투자자
+            },
+            params={
+                "FID_COND_MRKT_DIV_CODE": "J",  # 시장 분류 (J: 주식)
+                "FID_INPUT_ISCD": symbol        # 종목 코드
+            }
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"KIS API 투자자 동향 조회 실패: {response.status_code} {response.text}")
+
+        data = response.json()
+
+        if data.get("rt_cd") != "0":
+            error_msg = data.get("msg1", "알 수 없는 오류")
+            raise Exception(f"KIS API 오류: {error_msg}")
+
+        output = data.get("output", {})
+
+        # 안전한 int/float 변환
+        def safe_int(value, default=0):
+            try:
+                return int(value) if value and str(value).strip() else default
+            except (ValueError, TypeError):
+                return default
+
+        def safe_float(value, default=0.0):
+            try:
+                return float(value) if value and str(value).strip() else default
+            except (ValueError, TypeError):
+                return default
+
+        result = {
+            "foreign_net_buy": safe_int(output.get("frgn_ntby_qty")),          # 외국인 순매수량
+            "foreign_net_buy_amt": safe_float(output.get("frgn_ntby_tr_pbmn")), # 외국인 순매수금액
+            "institution_net_buy": safe_int(output.get("orgn_ntby_qty")),      # 기관 순매수량
+            "institution_net_buy_amt": safe_float(output.get("orgn_ntby_tr_pbmn")), # 기관 순매수금액
+            "individual_net_buy": safe_int(output.get("prsn_ntby_qty")),       # 개인 순매수량
+            "individual_net_buy_amt": safe_float(output.get("prsn_ntby_tr_pbmn"))  # 개인 순매수금액
+        }
+
+        print(f"✅ {symbol} 투자자 동향: 외국인={result['foreign_net_buy']:+,}주, 기관={result['institution_net_buy']:+,}주")
+        return result

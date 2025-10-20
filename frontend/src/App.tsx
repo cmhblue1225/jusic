@@ -14,6 +14,7 @@ import Watchlist from './pages/Watchlist';
 import Statistics from './pages/Statistics';
 import News from './pages/News';
 import Report from './pages/Report';
+import Bookmarks from './pages/Bookmarks';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -170,6 +171,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Report />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookmarks"
+          element={
+            <ProtectedRoute>
+              <Bookmarks />
             </ProtectedRoute>
           }
         />

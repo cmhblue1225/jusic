@@ -5,7 +5,7 @@
 import type { StockReport } from '../stores/reportStore';
 import { supabase } from './supabase';
 
-const REPORT_SERVICE_URL = import.meta.env.VITE_REPORT_SERVICE_URL || 'http://localhost:3004';
+const REPORT_SERVICE_URL = import.meta.env.VITE_REPORT_SERVICE_URL || 'https://report-service-production-4a2b.up.railway.app';
 
 /**
  * 레포트 생성 요청
@@ -77,7 +77,7 @@ export async function getBookmarks(): Promise<StockReport[]> {
 /**
  * 북마크 삭제
  */
-export async function deleteBookmark(symbol: string): Promise<void> {
+export async function deleteBookmark(bookmarkId: string): Promise<void> {
   try {
     // JWT 토큰 가져오기
     const { data: { session } } = await supabase.auth.getSession();
@@ -87,7 +87,7 @@ export async function deleteBookmark(symbol: string): Promise<void> {
       throw new Error('로그인이 필요합니다');
     }
 
-    const response = await fetch(`${REPORT_SERVICE_URL}/api/reports/bookmarks/${symbol}`, {
+    const response = await fetch(`${REPORT_SERVICE_URL}/api/reports/bookmarks/${bookmarkId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -100,6 +100,42 @@ export async function deleteBookmark(symbol: string): Promise<void> {
     }
   } catch (error) {
     console.error('[Report API] 북마크 삭제 실패:', error);
+    throw error;
+  }
+}
+/**
+ * 레포트 북마크 저장
+ */
+export async function bookmarkReport(symbol: string, symbolName: string): Promise<{ message: string; bookmark_id: string | null }> {
+  try {
+    // JWT 토큰 가져오기
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      throw new Error('로그인이 필요합니다');
+    }
+
+    const response = await fetch(`${REPORT_SERVICE_URL}/api/reports/bookmark`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        symbol,
+        symbol_name: symbolName,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || '북마크 저장에 실패했습니다');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[Report API] 북마크 저장 실패:', error);
     throw error;
   }
 }
