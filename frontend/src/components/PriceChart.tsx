@@ -61,8 +61,8 @@ export default function PriceChart({
       data.push({
         date: i === 0 ? '오늘' : i <= 5 ? dateStr : i % 5 === 0 ? dateStr : '',
         price: Math.round(price),
-        ma5: i >= 55 && ma5 ? ma5 : null,
-        ma20: i >= 40 && ma20 ? ma20 : null,
+        ma5: ma5 || null,  // 모든 데이터 포인트에 표시
+        ma20: ma20 || null,  // 모든 데이터 포인트에 표시
         ma60: ma60 || null,
       });
     }
@@ -115,11 +115,11 @@ export default function PriceChart({
             iconType="line"
           />
 
-          {/* 주가 라인 */}
+          {/* 주가 라인 - 초록색 */}
           <Line
             type="monotone"
             dataKey="price"
-            stroke="#3b82f6"
+            stroke="#10b981"
             strokeWidth={2}
             dot={false}
             name="주가"
@@ -130,7 +130,7 @@ export default function PriceChart({
             <Line
               type="monotone"
               dataKey="ma5"
-              stroke="#f59e0b"
+              stroke="#3b82f6"
               strokeWidth={1.5}
               dot={false}
               strokeDasharray="5 5"
@@ -141,7 +141,7 @@ export default function PriceChart({
             <Line
               type="monotone"
               dataKey="ma20"
-              stroke="#10b981"
+              stroke="#f59e0b"
               strokeWidth={1.5}
               dot={false}
               strokeDasharray="5 5"
@@ -165,18 +165,18 @@ export default function PriceChart({
       {/* 차트 범례 설명 */}
       <div className="mt-3 text-xs text-gray-600 flex flex-wrap gap-3">
         <div className="flex items-center gap-1">
-          <div className="w-4 h-0.5 bg-blue-500"></div>
+          <div className="w-4 h-0.5 bg-green-500"></div>
           <span>주가</span>
         </div>
         {ma5 && (
           <div className="flex items-center gap-1">
-            <div className="w-4 h-0.5 bg-amber-500 border-dashed"></div>
+            <div className="w-4 h-0.5 bg-blue-500 border-dashed"></div>
             <span>5일 이평선</span>
           </div>
         )}
         {ma20 && (
           <div className="flex items-center gap-1">
-            <div className="w-4 h-0.5 bg-green-500 border-dashed"></div>
+            <div className="w-4 h-0.5 bg-amber-500 border-dashed"></div>
             <span>20일 이평선</span>
           </div>
         )}
