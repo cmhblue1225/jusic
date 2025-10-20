@@ -1,0 +1,4 @@
+# Netlify SPA 라우팅 설정
+# React Router의 모든 경로를 index.html로 리다이렉트
+
+/*    /index.html   200

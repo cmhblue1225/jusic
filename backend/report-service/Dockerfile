@@ -17,8 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 애플리케이션 코드 복사
 COPY . .
 
-# 환경 변수
-ENV PORT=3004
+# Railway가 제공하는 PORT 환경 변수 사용 (기본값 8080)
+# Railway는 자동으로 PORT를 설정하므로 ENV로 하드코딩하지 않음
 
 # 실행 명령 (Python으로 직접 실행)
 CMD ["python", "main.py"]
