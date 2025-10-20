@@ -20,26 +20,34 @@ from ai_analyzer import analyze_stock
 load_dotenv()
 
 # FastAPI 앱 초기화
-app = FastAPI(title="Report Service", version="1.0.0")
+app = FastAPI(
+    title="Report Service",
+    version="1.0.1",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 # CORS 설정 (프로덕션 도메인 명시)
+# 🔥 중요: 미들웨어는 앱 초기화 직후에 추가해야 함
+print("🚀 Report Service 시작 중...")
+print(f"📍 환경: {os.getenv('RAILWAY_ENVIRONMENT', 'local')}")
+
 # 환경 변수 ALLOWED_ORIGINS가 설정되어 있으면 사용, 아니면 기본값
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
 if allowed_origins_env:
     ALLOWED_ORIGINS = [origin.strip() for origin in allowed_origins_env.split(",")]
 else:
-    ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://jusik.minhyuk.kr",
-        "https://www.jusik.minhyuk.kr",
-    ]
+    ALLOWED_ORIGINS = ["*"]  # 기본값: 모든 도메인 허용
 
-print(f"🔐 CORS 허용 도메인: {ALLOWED_ORIGINS}")
+print(f"🔐 CORS 설정:")
+print(f"   - allow_origins: {ALLOWED_ORIGINS}")
+print(f"   - allow_credentials: True")
+print(f"   - allow_methods: ['*']")
+print(f"   - allow_headers: ['*']")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 임시로 모든 도메인 허용 (CORS 디버깅)
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -127,7 +135,12 @@ def get_user_id_from_token(authorization: Optional[str]) -> Optional[str]:
 @app.get("/health")
 async def health():
     """헬스 체크"""
-    return {"status": "ok", "service": "report-service"}
+    return {
+        "status": "ok",
+        "service": "report-service",
+        "cors": "enabled",
+        "version": "1.0.1"
+    }
 
 
 @app.post("/api/reports/generate", response_model=ReportResponse)
