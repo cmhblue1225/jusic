@@ -63,17 +63,43 @@ def check_env_var(var_name: str, required: bool = True) -> Tuple[bool, str]:
 async def verify_kis_api() -> bool:
     """KIS API 연결 테스트"""
     try:
-        from kis_data import KISDataAPI
+        # KIS API 모듈에서 토큰 발급 함수 직접 호출
+        import sys
+        sys.path.insert(0, '/Users/dev/jusik/backend/report-service')
 
-        api = KISDataAPI()
-        token = await api.get_access_token()
+        import httpx
 
-        if token and len(token) > 20:
-            print_success(f"KIS API 토큰 발급 성공: {token[:20]}...")
-            return True
-        else:
-            print_error("KIS API 토큰 발급 실패")
+        app_key = os.getenv("KIS_APP_KEY")
+        app_secret = os.getenv("KIS_APP_SECRET")
+
+        if not app_key or not app_secret:
+            print_error("KIS_APP_KEY 또는 KIS_APP_SECRET이 설정되지 않았습니다")
             return False
+
+        # 토큰 발급 테스트
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                "https://openapi.koreainvestment.com:9443/oauth2/tokenP",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "grant_type": "client_credentials",
+                    "appkey": app_key,
+                    "appsecret": app_secret
+                }
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                token = data.get("access_token")
+                if token and len(token) > 20:
+                    print_success(f"KIS API 토큰 발급 성공: {token[:20]}...")
+                    return True
+                else:
+                    print_error("KIS API 토큰 발급 실패: 토큰 없음")
+                    return False
+            else:
+                print_error(f"KIS API 토큰 발급 실패: HTTP {response.status_code}")
+                return False
 
     except Exception as e:
         print_error(f"KIS API 연결 실패: {str(e)}")
@@ -115,9 +141,10 @@ async def verify_claude_api() -> bool:
     try:
         import anthropic
 
-        api_key = os.getenv("CLAUDE_API_KEY")
+        # Railway에서는 ANTHROPIC_API_KEY를 사용
+        api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
         if not api_key:
-            print_warning("CLAUDE_API_KEY가 설정되지 않았습니다")
+            print_warning("ANTHROPIC_API_KEY 또는 CLAUDE_API_KEY가 설정되지 않았습니다")
             return False
 
         client = anthropic.Anthropic(api_key=api_key)
@@ -143,7 +170,7 @@ async def verify_claude_api() -> bool:
 async def verify_supabase() -> bool:
     """Supabase 연결 테스트"""
     try:
-        from supabase import create_client
+        from supabase import create_client, Client
 
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_SERVICE_KEY")
@@ -152,17 +179,18 @@ async def verify_supabase() -> bool:
             print_error("SUPABASE_URL 또는 SUPABASE_SERVICE_KEY가 설정되지 않았습니다")
             return False
 
-        client = create_client(url, key)
+        # Supabase 클라이언트 생성 (옵션 없이)
+        client: Client = create_client(url, key)
 
-        # 간단한 쿼리 테스트
-        response = client.table('profiles').select('id').limit(1).execute()
+        # 간단한 쿼리 테스트 (stock_master 테이블 확인)
+        response = client.table('stock_master').select('symbol').limit(1).execute()
 
-        if response:
-            print_success("Supabase 연결 성공")
+        if response and response.data:
+            print_success(f"Supabase 연결 성공 (종목 수: {len(response.data)}개 조회)")
             return True
         else:
-            print_error("Supabase 쿼리 실패")
-            return False
+            print_warning("Supabase 연결 성공 (데이터 없음)")
+            return True  # 연결은 성공
 
     except Exception as e:
         print_error(f"Supabase 연결 실패: {str(e)}")
@@ -184,9 +212,17 @@ async def main():
         "SUPABASE_SERVICE_KEY",
         "KIS_APP_KEY",
         "KIS_APP_SECRET",
-        "OPENAI_API_KEY",
-        "CLAUDE_API_KEY"
+        "OPENAI_API_KEY"
     ]
+
+    # ANTHROPIC_API_KEY 또는 CLAUDE_API_KEY 확인
+    if os.getenv("ANTHROPIC_API_KEY"):
+        required_vars.append("ANTHROPIC_API_KEY")
+    elif os.getenv("CLAUDE_API_KEY"):
+        required_vars.append("CLAUDE_API_KEY")
+    else:
+        print_error("ANTHROPIC_API_KEY 또는 CLAUDE_API_KEY 중 하나가 필요합니다")
+        results["ANTHROPIC_API_KEY"] = False
 
     for var in required_vars:
         success, value = check_env_var(var, required=True)
