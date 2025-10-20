@@ -7,7 +7,7 @@ import { usePriceStore } from '../stores/priceStore';
 
 export function useRealtimePrices(symbols: string[], enabled: boolean = true) {
   const { fetchPrices } = usePriceStore();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     // 종목이 없거나 비활성화 시 중단

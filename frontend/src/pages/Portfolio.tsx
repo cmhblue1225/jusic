@@ -211,12 +211,10 @@ export default function Portfolio() {
         <div className="card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">📊 포트폴리오 요약</h2>
-            {isConnected && (
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                실시간 연동 중
-              </span>
-            )}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              실시간 연동 중 (1초)
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
@@ -232,7 +230,7 @@ export default function Portfolio() {
             <div className="bg-indigo-50 p-4 rounded-lg">
               <div className="text-sm text-gray-600 flex items-center gap-1">
                 평가금액
-                {isConnected && <span className="text-xs text-indigo-500">(실시간)</span>}
+                <span className="text-xs text-indigo-500">(실시간)</span>
               </div>
               <div className="text-2xl font-bold text-indigo-600">
                 {formatPrice(portfolioStats.totalEvaluation)}원
@@ -245,7 +243,7 @@ export default function Portfolio() {
             }`}>
               <div className="text-sm text-gray-600 flex items-center gap-1">
                 평가손익
-                {isConnected && <span className="text-xs text-gray-500">(실시간)</span>}
+                <span className="text-xs text-gray-500">(실시간)</span>
               </div>
               <div className={`text-2xl font-bold ${
                 portfolioStats.totalProfit > 0 ? 'text-red-600' :
@@ -400,7 +398,7 @@ export default function Portfolio() {
                       onClick={() => handleSort('currentPrice')}
                     >
                       현재가 {sortKey === 'currentPrice' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      {isConnected && <div className="text-xs text-green-600 font-normal">(실시간)</div>}
+                      <div className="text-xs text-green-600 font-normal">(실시간)</div>
                     </th>
                     <th
                       className="px-4 py-3 text-right text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-100"
@@ -413,22 +411,21 @@ export default function Portfolio() {
                       onClick={() => handleSort('evaluation')}
                     >
                       평가금액 {sortKey === 'evaluation' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      {isConnected && <div className="text-xs text-green-600 font-normal">(실시간)</div>}
+                      <div className="text-xs text-green-600 font-normal">(실시간)</div>
                     </th>
                     <th
                       className="px-4 py-3 text-right text-sm font-bold text-gray-700 cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('profitRate')}
                     >
                       손익률 {sortKey === 'profitRate' && (sortOrder === 'asc' ? '▲' : '▼')}
-                      {isConnected && <div className="text-xs text-green-600 font-normal">(실시간)</div>}
+                      <div className="text-xs text-green-600 font-normal">(실시간)</div>
                     </th>
                     <th className="px-4 py-3 text-center text-sm font-bold text-gray-700">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {sortedPortfolio.map((item) => {
-                    const { getPrice } = usePriceStore.getState();
-                    const priceData = getPrice(item.symbol);
+                    const priceData = prices.get(item.symbol);
 
                     return (
                       <tr key={item.id} className="hover:bg-gray-50">
