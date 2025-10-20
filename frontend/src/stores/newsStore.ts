@@ -82,17 +82,35 @@ export const useNewsStore = create<NewsState>((set) => ({
         return;
       }
 
-      // 4. 사용자 관련 종목의 뉴스만 조회
+      // 4. 사용자 관련 종목의 뉴스만 조회 (모든 뉴스 가져오기)
       const { data, error } = await supabase
         .from('news')
         .select('*')
         .overlaps('related_symbols', userSymbols) // 배열 겹침 체크
         .order('published_at', { ascending: false })
-        .limit(limit);
+        .limit(limit * 2); // 필터링을 고려해 2배 조회
 
       if (error) throw error;
 
-      set({ items: data || [], loading: false });
+      // 5. 클라이언트 사이드 필터링: 사용자 종목이 포함된 뉴스만 (관련성 높은 순)
+      const filteredNews = (data || [])
+        .map((news) => {
+          // 사용자 종목과 겹치는 개수 계산
+          const matchCount = news.related_symbols.filter((sym: string) =>
+            userSymbols.includes(sym)
+          ).length;
+          return { ...news, matchCount };
+        })
+        .filter((news) => news.matchCount > 0) // 최소 1개 이상 겹침
+        .sort((a, b) => {
+          // 1차: 매치 개수 많은 순
+          if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+          // 2차: 발행 시간 최신 순
+          return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+        })
+        .slice(0, limit); // 최종 limit 적용
+
+      set({ items: filteredNews, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
       throw error;
