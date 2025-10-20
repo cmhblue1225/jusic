@@ -116,8 +116,8 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
   };
 
   // 숫자 포맷팅
-  const formatNumber = (num: number | null) => {
-    if (num === null) return 'N/A';
+  const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return 'N/A';
     return num.toLocaleString('ko-KR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,

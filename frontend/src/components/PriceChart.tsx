@@ -12,7 +12,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Bar,
 } from 'recharts';
 
 interface PriceChartProps {
