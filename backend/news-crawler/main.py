@@ -127,17 +127,17 @@ async def crawl_news():
 
     print(f"🎯 사용자 추적 종목: {len(stock_names)}개")
 
-    # 2. 네이버 API로 종목별 뉴스 검색 (종목당 5개)
+    # 2. 네이버 API로 종목별 뉴스 검색 (종목당 10개로 증가)
     try:
         all_news = await naver_api.search_multiple_stocks(
             stock_names=stock_names,
-            results_per_stock=5
+            results_per_stock=10  # 5 → 10개로 증가 (최신 뉴스 확률 증가)
         )
 
         print(f"📰 총 {len(all_news)}개 뉴스 수집 (중복 제거 후)")
 
         # API 사용량 로깅
-        api_calls = len(stock_names) * 5
+        api_calls = len(stock_names) * 10
         print(f"📊 API 호출 수: {api_calls}개 (일일 한도: 25,000)")
 
     except Exception as e:
@@ -149,13 +149,13 @@ async def crawl_news():
     duplicate_count = 0
     old_news_count = 0
 
-    # 7일 이전 시간 계산 (24시간 → 7일로 완화)
+    # 3일 이전 시간 계산 (최신 뉴스 위주)
     # UTC timezone aware datetime 사용
-    cutoff_time = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=3)
 
     for news_item in all_news:
         try:
-            # 발행 시간 체크 (7일 이내만 처리)
+            # 발행 시간 체크 (3일 이내만 처리)
             published_at = datetime.fromisoformat(news_item["published_at"].replace('Z', '+00:00'))
             if published_at < cutoff_time:
                 old_news_count += 1
@@ -213,7 +213,7 @@ async def crawl_news():
             continue
 
     print(f"\n[{datetime.now()}] 네이버 API 뉴스 크롤링 완료")
-    print(f"📈 통계: 신규 {new_count}개, 중복 {duplicate_count}개, 7일 이전 {old_news_count}개\n")
+    print(f"📈 통계: 신규 {new_count}개, 중복 {duplicate_count}개, 3일 이전 {old_news_count}개\n")
 
 
 def crawl_news_sync():

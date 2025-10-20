@@ -122,20 +122,20 @@ class NaverNewsAPI:
     async def search_stock_news(
         self,
         stock_name: str,
-        max_results: int = 5
+        max_results: int = 10
     ) -> List[Dict]:
         """
         특정 종목 관련 뉴스 검색
 
         Args:
             stock_name: 종목명 (예: "삼성전자", "SK하이닉스")
-            max_results: 최대 결과 수
+            max_results: 최대 결과 수 (기본값 10개)
 
         Returns:
             파싱된 뉴스 리스트
         """
-        # 검색어 최적화
-        query = f"{stock_name} 주가 OR {stock_name} 실적"
+        # 검색어 최적화 - 최신 뉴스 위주
+        query = f"{stock_name}"
 
         items = await self.search_news(query=query, display=max_results, sort="date")
 
