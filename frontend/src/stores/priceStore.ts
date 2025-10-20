@@ -40,6 +40,10 @@ interface PriceStoreState {
   // 구독 중인 종목 목록
   subscribedSymbols: Set<string>;
 
+  // HTTP 폴링 상태
+  loading: boolean;
+  error: string | null;
+
   // Actions
   setConnected: (connected: boolean) => void;
   updatePrice: (data: RealtimeStockData) => void;
@@ -49,15 +53,23 @@ interface PriceStoreState {
   addSubscribedSymbol: (symbol: string) => void;
   removeSubscribedSymbol: (symbol: string) => void;
   clearSubscribedSymbols: () => void;
+
+  // HTTP 폴링 (WebSocket 대체용)
+  fetchPrices: (symbols: string[]) => Promise<void>;
+  clearError: () => void;
 }
 
 const MAX_HISTORY_LENGTH = 100;
+
+const STREAM_SERVICE_URL = import.meta.env.VITE_STREAM_SERVICE_URL || 'http://localhost:3001';
 
 export const usePriceStore = create<PriceStoreState>((set, get) => ({
   prices: new Map(),
   history: new Map(),
   isConnected: false,
   subscribedSymbols: new Set(),
+  loading: false,
+  error: null,
 
   setConnected: (connected) => {
     set({ isConnected: connected });
@@ -135,6 +147,45 @@ export const usePriceStore = create<PriceStoreState>((set, get) => ({
 
   clearSubscribedSymbols: () => {
     set({ subscribedSymbols: new Set() });
+  },
+
+  /**
+   * HTTP 폴링 방식 가격 조회 (WebSocket 대체용)
+   */
+  fetchPrices: async (symbols: string[]) => {
+    if (symbols.length === 0) return;
+
+    try {
+      set({ loading: true, error: null });
+
+      const response = await fetch(`${STREAM_SERVICE_URL}/api/stocks/prices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        // 각 가격 데이터를 updatePrice로 처리
+        result.data.forEach((priceData: RealtimeStockData) => {
+          get().updatePrice(priceData);
+        });
+      }
+
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('[Price Store] HTTP 폴링 실패:', error);
+      set({ error: error.message, loading: false });
+    }
+  },
+
+  clearError: () => {
+    set({ error: null });
   },
 }));
 

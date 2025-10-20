@@ -2,9 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { usePortfolioStore } from '../stores/portfolioStore';
-import { useRealtimePrice } from '../hooks/useRealtimePrice';
-import { useInitialStockPrices } from '../hooks/useInitialStockPrices';
-import { usePriceStore, formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
+import { useRealtimePrices } from '../hooks/useRealtimePrices';
+import { formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
 import type { PortfolioItem } from '../lib/profitCalculator';
 import StockAutocomplete from '../components/StockAutocomplete';
 
@@ -24,23 +23,13 @@ export default function Portfolio() {
   } = usePortfolioStore();
   const navigate = useNavigate();
 
-  // 실시간 시세 통합
+  // 실시간 시세 자동 갱신 (1초마다)
   const portfolioSymbols = useMemo(() => items.map((item: PortfolioItem) => item.symbol), [items]);
-  const { isConnected } = useRealtimePrice({
-    autoConnect: true,
-    autoSubscribe: true,
-    symbols: portfolioSymbols,
-  });
+  const { prices } = useRealtimePrices(portfolioSymbols, true);
 
-  // 초기 시세 조회 (거래 시간 외 또는 WebSocket 연결 전)
-  useInitialStockPrices({
-    symbols: portfolioSymbols,
-    enabled: portfolioSymbols.length > 0,
-  });
-
-  // 실시간 평가금액이 계산된 포트폴리오 (Phase 2.2.1)
-  const portfolioWithProfit = useMemo(() => getPortfolioWithProfit(), [items, isConnected]);
-  const portfolioStats = useMemo(() => getPortfolioStats(), [items, isConnected]);
+  // 실시간 평가금액이 계산된 포트폴리오
+  const portfolioWithProfit = useMemo(() => getPortfolioWithProfit(), [items, prices]);
+  const portfolioStats = useMemo(() => getPortfolioStats(), [items, prices]);
 
   // 추가/수정 폼 상태
   const [isAdding, setIsAdding] = useState(false);
