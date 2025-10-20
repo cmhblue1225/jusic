@@ -5,7 +5,7 @@ Report Service - FastAPI 서버
 import os
 from datetime import datetime, date
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -143,9 +143,25 @@ async def health():
     }
 
 
-@app.post("/api/reports/generate", response_model=ReportResponse)
+@app.options("/api/reports/generate")
+async def options_generate_report():
+    """CORS preflight 요청 처리"""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+        }
+    )
+
+
+@app.post("/api/reports/generate")
 async def generate_report(
     request: ReportRequest,
+    response: Response,
     authorization: Optional[str] = Header(None)
 ):
     """
@@ -158,6 +174,12 @@ async def generate_report(
     Returns:
         ReportResponse: 생성된 레포트
     """
+    # CORS 헤더 명시적 추가
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+
     symbol = request.symbol
     symbol_name = request.symbol_name
     report_date_str = date.today().isoformat()
