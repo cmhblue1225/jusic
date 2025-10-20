@@ -12,12 +12,16 @@ AI Ensemble 시스템
 
 🔥 Phase 3.2 개선사항:
 - 리스크 점수 정량화 (0-100) - 뉴스/변동성/재무/시장/유동성 5개 카테고리
+
+🔥 Phase 3.3 개선사항:
+- 신뢰도 계산 개선 - 5개 차원 (권고/평가점수/리스크레벨/리스크점수/타임프레임) 가중 평균
 """
 import os
 import json
 import asyncio
 from typing import Dict, List, Any, Optional
 from collections import Counter
+import numpy as np  # 🔥 Phase 3.3: 표준편차 계산용
 from openai import AsyncOpenAI
 import anthropic
 from risk_score_calculator import calculate_total_risk_score  # 🔥 Phase 3.2
@@ -863,14 +867,46 @@ def ensemble_vote(results: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     final_score = sum(weighted_scores) / sum(weights.get(r["model"], 0.5) for r in results)
 
-    # 4. 신뢰도 계산 (모델 간 합의 정도)
-    # - 투자 권고 일치율 (50%)
+    # 4. 🔥 Phase 3.3: 개선된 신뢰도 계산 (모델 간 합의 정도)
+    # - 투자 권고 일치율 (30%)
     rec_agreement = recommendation_counts[final_recommendation] / len(results) * 100
-    # - 평가 점수 표준편차 (50%, 낮을수록 합의 높음)
+
+    # - 평가 점수 표준편차 (25%, 낮을수록 합의 높음)
     score_std = np.std([r["evaluation_score"] for r in results])
     score_agreement = max(0, 100 - score_std)  # 표준편차가 클수록 합의 낮음
 
-    confidence_score = (rec_agreement * 0.5 + score_agreement * 0.5)
+    # - 🆕 리스크 레벨 일치율 (20%)
+    risk_agreement = risk_counts[final_risk_level] / len(results) * 100
+
+    # - 🆕 리스크 점수 일치도 (15%, Phase 3.2에서 추가된 필드 활용)
+    risk_scores = [r.get("risk_score", 50) for r in results]
+    risk_score_std = np.std(risk_scores) if len(risk_scores) > 1 else 0
+    risk_score_agreement = max(0, 100 - risk_score_std)  # 표준편차가 클수록 합의 낮음
+
+    # - 🆕 타임프레임 분석 일치도 (10%, Phase 3.1에서 추가된 필드 활용)
+    # 단기/중기/장기 전망(outlook)이 일치하는지 확인
+    timeframe_agreement = 0
+    if all("timeframe_analysis" in r for r in results):
+        short_outlooks = [r["timeframe_analysis"].get("short_term", {}).get("outlook", "neutral") for r in results]
+        medium_outlooks = [r["timeframe_analysis"].get("medium_term", {}).get("outlook", "neutral") for r in results]
+        long_outlooks = [r["timeframe_analysis"].get("long_term", {}).get("outlook", "neutral") for r in results]
+
+        short_agreement = len([o for o in short_outlooks if o == max(set(short_outlooks), key=short_outlooks.count)]) / len(short_outlooks) * 100
+        medium_agreement = len([o for o in medium_outlooks if o == max(set(medium_outlooks), key=medium_outlooks.count)]) / len(medium_outlooks) * 100
+        long_agreement = len([o for o in long_outlooks if o == max(set(long_outlooks), key=long_outlooks.count)]) / len(long_outlooks) * 100
+
+        timeframe_agreement = (short_agreement + medium_agreement + long_agreement) / 3
+    else:
+        timeframe_agreement = 50  # 데이터 없으면 중립
+
+    # 가중 평균으로 최종 신뢰도 계산
+    confidence_score = (
+        rec_agreement * 0.30 +
+        score_agreement * 0.25 +
+        risk_agreement * 0.20 +
+        risk_score_agreement * 0.15 +
+        timeframe_agreement * 0.10
+    )
 
     # 5. 종합 요약 생성
     summary_parts = []
@@ -894,9 +930,13 @@ def ensemble_vote(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     claude_result = next((r for r in results if "claude" in r["model"]), None)
     primary_result = gpt4_result or claude_result or results[0]
 
+    # 🔥 Phase 3.2 + 3.3: 리스크 점수 평균 계산
+    final_risk_score = sum(r.get("risk_score", 50) for r in results) / len(results)
+
     result = {
         "summary": final_summary,
         "risk_level": final_risk_level,
+        "risk_score": round(final_risk_score, 2),  # 🔥 Phase 3.2: 리스크 점수 평균
         "recommendation": final_recommendation,
         "evaluation_score": round(final_score, 2),
         "confidence_score": round(confidence_score, 2),
@@ -910,20 +950,33 @@ def ensemble_vote(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         "risk_factors": primary_result.get("risk_factors", ""),
         "target_price_range": primary_result.get("target_price_range", ""),
         "time_horizon": primary_result.get("time_horizon", "medium_term"),
+        # 🔥 Phase 3.1: 멀티 타임프레임 분석 (primary_result에서 가져오기)
+        "timeframe_analysis": primary_result.get("timeframe_analysis", {}),
+        # 🔥 Phase 3.2: 리스크 점수 세부 정보 (primary_result에서 가져오기)
+        "risk_score_breakdown": primary_result.get("risk_score_breakdown", {}),
+        "risk_score_description": primary_result.get("risk_score_description", ""),
         "ensemble_metadata": {
             "models_used": [r["model"] for r in results],
             "recommendation_counts": recommendation_counts,
             "risk_counts": risk_counts,
             "score_std": round(score_std, 2),
             "rec_agreement_pct": round(rec_agreement, 2),
-            "score_agreement_pct": round(score_agreement, 2)
+            "score_agreement_pct": round(score_agreement, 2),
+            # 🔥 Phase 3.3: 새로운 일치도 메트릭 추가
+            "risk_agreement_pct": round(risk_agreement, 2),
+            "risk_score_std": round(risk_score_std, 2),
+            "risk_score_agreement_pct": round(risk_score_agreement, 2),
+            "timeframe_agreement_pct": round(timeframe_agreement, 2)
         }
     }
 
     print(f"\n🔮 [Ensemble] 최종 결과:")
     print(f"   - 권고: {final_recommendation} (합의율: {rec_agreement:.1f}%)")
     print(f"   - 점수: {final_score:.2f} (표준편차: {score_std:.2f})")
-    print(f"   - 신뢰도: {confidence_score:.2f}점")
+    print(f"   - 리스크: {final_risk_level} (합의율: {risk_agreement:.1f}%)")
+    print(f"   - 리스크 점수 표준편차: {risk_score_std:.2f}")
+    print(f"   - 타임프레임 합의율: {timeframe_agreement:.1f}%")
+    print(f"   - 🔥 신뢰도: {confidence_score:.2f}점 (5개 차원 가중 평균)")
 
     return result
 
@@ -945,6 +998,9 @@ async def analyze_with_ensemble(
 ) -> Dict[str, Any]:
     """
     🔥 Phase 1.3 개선: AI Ensemble 종목 분석 - GPT-4 + Claude 병렬 실행 후 투표 (확장 데이터 반영)
+    🔥 Phase 3.1 개선: 멀티 타임프레임 분석 (단기/중기/장기) 추가
+    🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
+    🔥 Phase 3.3 개선: 신뢰도 계산 개선 - 5개 차원 가중 평균 (권고 30%, 평가점수 25%, 리스크레벨 20%, 리스크점수 15%, 타임프레임 10%)
 
     Args:
         symbol: 종목 코드
