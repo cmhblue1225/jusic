@@ -43,7 +43,9 @@ try:
         get_short_selling_trend,
         get_program_trading_trend,
         get_institutional_flow_estimate,
-        get_index_price
+        get_index_price,
+        # 🔥 Phase 4.1: 업종 상대 평가
+        get_sector_relative_analysis
     )
     print("  ✅ kis_data 모듈 (7개 신규 API 포함)")
     from technical import calculate_all_indicators
@@ -392,6 +394,29 @@ async def generate_report(
             safe_get_kospi_index()
         )
 
+        # 🔥 Phase 4.1: 업종 상대 평가 (sector_info 조회 후 실행)
+        sector_relative = {}
+        if sector_info.get("sector_code"):
+            try:
+                sector_relative = await rate_limited_kis_request(
+                    get_sector_relative_analysis,
+                    symbol,
+                    sector_info.get("sector_code")
+                )
+                print(f"✅ 업종 상대 평가: 상대강도 {sector_relative.get('relative_strength', 1.0):.2f}")
+            except Exception as e:
+                print(f"⚠️ 업종 상대 평가 실패: {str(e)}")
+                sector_relative = {
+                    "sector_avg_change_rate": 0,
+                    "relative_strength": 1.0,
+                    "sector_rank_pct": 50,
+                    "sector_avg_volume_ratio": 1.0,
+                    "sector_avg_per": 0,
+                    "sector_avg_pbr": 0,
+                    "outperformance": 0,
+                    "sample_size": 0
+                }
+
         print(f"✅ 데이터 조회 완료 (병렬 처리)")
         print(f"   - 뉴스: {len(news_data)}개")
         print(f"   - 고급 데이터: {'✅' if advanced_data else '❌'}")
@@ -419,7 +444,8 @@ async def generate_report(
                 credit_balance=credit_balance,
                 short_selling=short_selling,
                 program_trading=program_trading,
-                institutional_flow=institutional_flow
+                institutional_flow=institutional_flow,
+                sector_relative=sector_relative  # 🔥 Phase 4.1: 업종 상대 평가
             )
         else:
             # 폴백: 단일 모델 (GPT-4)
@@ -531,6 +557,15 @@ async def generate_report(
             "sector_info": {
                 "sector_name": sector_info.get("sector_name"),
                 "sector_code": sector_info.get("sector_code")
+            },
+            # 🔥 Phase 4.1: 업종 상대 평가
+            "sector_relative": {
+                "sector_avg_change_rate": sector_relative.get("sector_avg_change_rate", 0),
+                "relative_strength": sector_relative.get("relative_strength", 1.0),
+                "sector_rank_pct": sector_relative.get("sector_rank_pct", 50),
+                "outperformance": sector_relative.get("outperformance", 0),
+                "sample_size": sector_relative.get("sample_size", 0),
+                "note": sector_relative.get("note", "")
             },
             "credit_balance_trend": credit_balance,
             "short_selling_trend": short_selling,

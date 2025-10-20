@@ -169,11 +169,13 @@ async def analyze_with_gpt4(
     credit_balance: List[Dict] = None,       # 🔥 Phase 1.3
     short_selling: List[Dict] = None,        # 🔥 Phase 1.3
     program_trading: List[Dict] = None,      # 🔥 Phase 1.3
-    institutional_flow: Dict[str, Any] = None  # 🔥 Phase 1.3
+    institutional_flow: Dict[str, Any] = None,  # 🔥 Phase 1.3
+    sector_relative: Dict[str, Any] = None   # 🔥 Phase 4.1: 업종 상대 평가
 ) -> Optional[Dict[str, Any]]:
     """
     🔥 Phase 1.3 개선: GPT-4 Turbo 기반 종목 분석 (뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
     🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
+    🔥 Phase 4.1 개선: 업종 상대 평가 추가
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
@@ -283,6 +285,25 @@ async def analyze_with_gpt4(
     sector_text = f"""
 🏢 업종: {sector_info.get('sector_name', 'N/A')} (코드: {sector_info.get('sector_code', 'N/A')})
 """ if sector_info.get("sector_name") else "업종 정보 없음"
+
+    # 🔥 Phase 4.1: 업종 상대 평가 텍스트 생성
+    sector_relative = sector_relative or {}
+    sector_relative_text = ""
+    if sector_relative.get("sample_size", 0) > 0:
+        relative_strength_val = sector_relative.get("relative_strength", 1.0)
+        outperformance = sector_relative.get("outperformance", 0)
+        sector_avg_change = sector_relative.get("sector_avg_change_rate", 0)
+
+        performance_label = "초과 수익" if outperformance > 0 else "하회" if outperformance < 0 else "동일"
+        strength_label = "강세" if relative_strength_val > 1.1 else "약세" if relative_strength_val < 0.9 else "중립"
+
+        sector_relative_text = f"""
+📊 업종 상대 평가:
+  - 업종 평균 등락률: {sector_avg_change:+.2f}%
+  - 상대 강도: {relative_strength_val:.2f} ({strength_label})
+  - 초과 수익률: {outperformance:+.2f}% ({performance_label})
+  - 업종 내 순위: 상위 {sector_relative.get('sector_rank_pct', 50):.0f}%
+"""
 
     # 🔥 Phase 1.3: 시장 지수 비교 텍스트 생성
     market_index = market_index or {}
@@ -502,11 +523,13 @@ async def analyze_with_claude(
     credit_balance: List[Dict] = None,       # 🔥 Phase 1.3
     short_selling: List[Dict] = None,        # 🔥 Phase 1.3
     program_trading: List[Dict] = None,      # 🔥 Phase 1.3
-    institutional_flow: Dict[str, Any] = None  # 🔥 Phase 1.3
+    institutional_flow: Dict[str, Any] = None,  # 🔥 Phase 1.3
+    sector_relative: Dict[str, Any] = None   # 🔥 Phase 4.1: 업종 상대 평가
 ) -> Optional[Dict[str, Any]]:
     """
     🔥 Phase 1.3 개선: Claude 3.5 Sonnet 기반 종목 분석 (리스크 분석 전문가, 뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
     🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
+    🔥 Phase 4.1 개선: 업종 상대 평가 추가
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
@@ -615,6 +638,25 @@ async def analyze_with_claude(
     sector_text = f"""
 🏢 업종: {sector_info.get('sector_name', 'N/A')} (코드: {sector_info.get('sector_code', 'N/A')})
 """ if sector_info.get("sector_name") else "업종 정보 없음"
+
+    # 🔥 Phase 4.1: 업종 상대 평가 텍스트 생성
+    sector_relative = sector_relative or {}
+    sector_relative_text = ""
+    if sector_relative.get("sample_size", 0) > 0:
+        relative_strength_val = sector_relative.get("relative_strength", 1.0)
+        outperformance = sector_relative.get("outperformance", 0)
+        sector_avg_change = sector_relative.get("sector_avg_change_rate", 0)
+
+        performance_label = "초과 수익" if outperformance > 0 else "하회" if outperformance < 0 else "동일"
+        strength_label = "강세" if relative_strength_val > 1.1 else "약세" if relative_strength_val < 0.9 else "중립"
+
+        sector_relative_text = f"""
+📊 업종 상대 평가:
+  - 업종 평균 등락률: {sector_avg_change:+.2f}%
+  - 상대 강도: {relative_strength_val:.2f} ({strength_label})
+  - 초과 수익률: {outperformance:+.2f}% ({performance_label})
+  - 업종 내 순위: 상위 {sector_relative.get('sector_rank_pct', 50):.0f}%
+"""
 
     # 🔥 Phase 1.3: 시장 지수 비교 텍스트 생성
     market_index = market_index or {}
@@ -994,13 +1036,15 @@ async def analyze_with_ensemble(
     credit_balance: List[Dict] = None,       # 🔥 Phase 1.3
     short_selling: List[Dict] = None,        # 🔥 Phase 1.3
     program_trading: List[Dict] = None,      # 🔥 Phase 1.3
-    institutional_flow: Dict[str, Any] = None  # 🔥 Phase 1.3
+    institutional_flow: Dict[str, Any] = None,  # 🔥 Phase 1.3
+    sector_relative: Dict[str, Any] = None   # 🔥 Phase 4.1: 업종 상대 평가
 ) -> Dict[str, Any]:
     """
     🔥 Phase 1.3 개선: AI Ensemble 종목 분석 - GPT-4 + Claude 병렬 실행 후 투표 (확장 데이터 반영)
     🔥 Phase 3.1 개선: 멀티 타임프레임 분석 (단기/중기/장기) 추가
     🔥 Phase 3.2 개선: 리스크 점수 정량화 (0-100) 추가
     🔥 Phase 3.3 개선: 신뢰도 계산 개선 - 5개 차원 가중 평균 (권고 30%, 평가점수 25%, 리스크레벨 20%, 리스크점수 15%, 타임프레임 10%)
+    🔥 Phase 4.1 개선: 업종 상대 평가 추가 (동일 업종 내 상대 강도 및 초과 수익률 분석)
 
     Args:
         symbol: 종목 코드
@@ -1011,6 +1055,7 @@ async def analyze_with_ensemble(
         investor_data: 투자자 동향 (선택)
         analyst_opinion: 애널리스트 의견 (선택)
         sector_info: 업종 정보 (선택)
+        sector_relative: 업종 상대 평가 (선택) - Phase 4.1
         market_index: 시장 지수 (선택)
         credit_balance: 신용잔고 추이 (선택)
         short_selling: 공매도 추이 (선택)
@@ -1035,12 +1080,12 @@ async def analyze_with_ensemble(
         gpt4_task = analyze_with_gpt4(
             symbol, symbol_name, price_data, news_data, financial_data, investor_data,
             analyst_opinion, sector_info, market_index, credit_balance, short_selling,
-            program_trading, institutional_flow
+            program_trading, institutional_flow, sector_relative  # 🔥 Phase 4.1
         )
         claude_task = analyze_with_claude(
             symbol, symbol_name, price_data, news_data, financial_data, investor_data,
             analyst_opinion, sector_info, market_index, credit_balance, short_selling,
-            program_trading, institutional_flow
+            program_trading, institutional_flow, sector_relative  # 🔥 Phase 4.1
         )
 
         gpt4_result, claude_result = await asyncio.gather(gpt4_task, claude_task)

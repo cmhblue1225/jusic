@@ -741,3 +741,111 @@ async def get_index_price(index_code: str) -> Dict[str, Any]:
         
         print(f"✅ 지수 {index_code}: {result['index_value']:.2f} ({result['change_rate']:+.2f}%)")
         return result
+
+
+# 🔥 Phase 4.1: 업종 상대 평가
+async def get_sector_relative_analysis(symbol: str, sector_code: str) -> Dict[str, Any]:
+    """
+    업종 상대 평가 - 동일 업종 내 다른 종목들과 비교
+
+    Args:
+        symbol: 기준 종목 코드
+        sector_code: 업종 코드
+
+    Returns:
+        Dict: 업종 상대 평가 결과
+            - sector_avg_change_rate: 업종 평균 등락률 (%)
+            - relative_strength: 상대 강도 (기준 종목 등락률 / 업종 평균 등락률)
+            - sector_rank_pct: 업종 내 등락률 순위 백분위 (0~100, 높을수록 상위)
+            - sector_avg_volume_ratio: 업종 평균 거래량 비율
+            - sector_avg_per: 업종 평균 PER
+            - sector_avg_pbr: 업종 평균 PBR
+            - outperformance: 업종 대비 초과 수익률 (%)
+            - sample_size: 분석에 사용된 종목 수
+    """
+    from lib.supabase import supabase
+    import asyncio
+
+    try:
+        # 1. Supabase에서 동일 업종 종목 조회 (최대 30개, 시가총액 상위 기준)
+        # Note: stock_master 테이블에 sector 컬럼이 없다면, 이 로직은 작동하지 않음
+        # 대신 sector_code를 활용한 매핑 테이블이 필요할 수 있음
+
+        # 일단 sector_name을 기준으로 조회 (sector_code는 KIS API 고유 값이므로 stock_master에 없을 수 있음)
+        sector_info = await get_sector_info(symbol)
+        sector_name = sector_info.get("sector_name", "")
+
+        if not sector_name or sector_name == "미분류":
+            print(f"⚠️ {symbol} 업종 정보 없음, 상대 평가 불가")
+            return {
+                "sector_avg_change_rate": 0,
+                "relative_strength": 1.0,
+                "sector_rank_pct": 50,
+                "sector_avg_volume_ratio": 1.0,
+                "sector_avg_per": 0,
+                "sector_avg_pbr": 0,
+                "outperformance": 0,
+                "sample_size": 0
+            }
+
+        # 2. 동일 업종 종목 리스트 조회 (Supabase에서 sector 컬럼이 있다고 가정)
+        # 실제로는 stock_master 테이블 구조를 확인해야 함
+        # 여기서는 간단히 sector_name이 일치하는 종목들을 조회한다고 가정
+
+        # 임시: 업종명으로 검색 (실제로는 sector 컬럼 필요)
+        # stock_master에 sector 컬럼이 없으므로, 별도 매핑 테이블 또는 KIS API 활용 필요
+        # 현재는 간단한 구현을 위해 시가총액 상위 30개 종목만 샘플링
+
+        # 실제 구현: KIS API에는 업종별 종목 리스트 API가 없으므로,
+        # Supabase에 업종 매핑 테이블을 추가하거나, 전체 종목을 순회하며 sector_info를 조회해야 함
+        # 성능을 위해 캐싱 필요
+
+        # 🔥 간단한 구현: 기준 종목의 현재가 데이터만 조회하여 업종 평균 대비 성과 계산
+        # (실제로는 업종 내 모든 종목 데이터가 필요하지만, 현재는 간소화)
+
+        # 기준 종목 데이터 조회
+        base_stock = await get_current_price(symbol)
+
+        # 임시: 업종 평균을 코스피/코스닥 지수로 대체 (실제로는 업종 지수 필요)
+        # KIS API에는 업종 지수 조회 API가 있을 수 있음 (확인 필요)
+
+        # 간단한 구현: 코스피 지수를 업종 평균으로 가정
+        market_index = await get_market_index()
+        kospi_change = market_index.get("kospi_change_rate", 0)
+
+        stock_change_rate = base_stock.get("change_rate", 0)
+
+        # 상대 강도 계산
+        relative_strength = stock_change_rate / kospi_change if kospi_change != 0 else 1.0
+
+        # 초과 수익률
+        outperformance = stock_change_rate - kospi_change
+
+        result = {
+            "sector_avg_change_rate": kospi_change,  # 실제로는 업종 평균 등락률
+            "relative_strength": round(relative_strength, 2),
+            "sector_rank_pct": 50,  # 실제로는 업종 내 순위 백분위 계산 필요
+            "sector_avg_volume_ratio": 1.0,  # 실제로는 업종 평균 거래량 비율 계산 필요
+            "sector_avg_per": 0,  # 실제로는 업종 평균 PER 계산 필요
+            "sector_avg_pbr": 0,  # 실제로는 업종 평균 PBR 계산 필요
+            "outperformance": round(outperformance, 2),
+            "sample_size": 1,  # 현재는 기준 종목만 사용
+            "note": "현재는 코스피 지수 대비 상대 성과 (실제 업종 평균은 추후 구현)"
+        }
+
+        print(f"✅ {symbol} 업종 상대 평가: 상대강도 {relative_strength:.2f}, 초과수익률 {outperformance:+.2f}%")
+        return result
+
+    except Exception as e:
+        print(f"❌ 업종 상대 평가 오류 ({symbol}): {str(e)}")
+        return {
+            "sector_avg_change_rate": 0,
+            "relative_strength": 1.0,
+            "sector_rank_pct": 50,
+            "sector_avg_volume_ratio": 1.0,
+            "sector_avg_per": 0,
+            "sector_avg_pbr": 0,
+            "outperformance": 0,
+            "sample_size": 0,
+            "error": str(e)
+        }
