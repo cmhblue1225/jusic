@@ -405,13 +405,21 @@ async def generate_report(
         use_ensemble = os.getenv("USE_AI_ENSEMBLE", "true").lower() == "true"
 
         if use_ensemble:
+            # 🔥 Phase 1.3: 확장된 데이터를 AI Ensemble에 전달
             ai_result = await analyze_with_ensemble(
                 symbol,
                 symbol_name,
                 indicators,
                 news_data,
                 financial_data=financial_data,
-                investor_data=investor_data
+                investor_data=investor_data,
+                analyst_opinion=analyst_opinion,
+                sector_info=sector_info,
+                market_index=kospi_index,
+                credit_balance=credit_balance,
+                short_selling=short_selling,
+                program_trading=program_trading,
+                institutional_flow=institutional_flow
             )
         else:
             # 폴백: 단일 모델 (GPT-4)

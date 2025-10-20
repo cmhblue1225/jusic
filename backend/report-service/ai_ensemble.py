@@ -4,11 +4,17 @@ AI Ensemble 시스템
 - 두 모델의 분석 결과를 투표(Voting)로 결합
 - 신뢰도(Confidence) 점수 계산 (모델 간 합의 정도)
 - 폴백 로직: 한 모델 실패 시 다른 모델 결과 사용
+
+🔥 Phase 1.3 개선사항:
+- 뉴스 7일 50개 전체 트렌드 분석
+- 애널리스트 컨센서스 반영
+- 업종/시장 맥락 추가
 """
 import os
 import json
 import asyncio
 from typing import Dict, List, Any, Optional
+from collections import Counter
 from openai import AsyncOpenAI
 import anthropic
 
@@ -39,32 +45,158 @@ def get_anthropic_client():
     return _anthropic_client
 
 
+def analyze_news_trend(news_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    🔥 Phase 1.3: 뉴스 트렌드 분석 (7일 50개 전체 분석)
+
+    Args:
+        news_data: 뉴스 데이터 리스트 (최대 50개)
+
+    Returns:
+        Dict: 뉴스 트렌드 분석 결과
+            - total_count: 총 뉴스 수
+            - positive_count/negative_count/neutral_count: 감성별 뉴스 수
+            - positive_ratio/negative_ratio: 긍정/부정 비율
+            - avg_sentiment_score: 평균 감성 점수
+            - avg_impact_score: 평균 영향도
+            - high_impact_news: 고영향도 뉴스 (impact >= 0.7)
+            - trending_keywords: 자주 등장하는 키워드 (상위 5개)
+            - recent_sentiment_change: 최근 3일 vs 이전 4일 감성 변화
+    """
+    if not news_data:
+        return {
+            "total_count": 0,
+            "positive_count": 0,
+            "negative_count": 0,
+            "neutral_count": 0,
+            "positive_ratio": 0.0,
+            "negative_ratio": 0.0,
+            "avg_sentiment_score": 0.0,
+            "avg_impact_score": 0.0,
+            "high_impact_news": [],
+            "trending_keywords": [],
+            "recent_sentiment_change": "불변"
+        }
+
+    total_count = len(news_data)
+    positive_count = sum(1 for n in news_data if n.get("sentiment_score", 0) > 0)
+    negative_count = sum(1 for n in news_data if n.get("sentiment_score", 0) < 0)
+    neutral_count = total_count - positive_count - negative_count
+
+    positive_ratio = (positive_count / total_count * 100) if total_count > 0 else 0.0
+    negative_ratio = (negative_count / total_count * 100) if total_count > 0 else 0.0
+
+    avg_sentiment = sum(n.get("sentiment_score", 0) for n in news_data) / total_count
+    avg_impact = sum(n.get("impact_score", 0) for n in news_data) / total_count
+
+    # 고영향도 뉴스 추출 (impact_score >= 0.7)
+    high_impact_news = [
+        {
+            "title": n["title"],
+            "sentiment_score": n.get("sentiment_score", 0),
+            "impact_score": n.get("impact_score", 0)
+        }
+        for n in news_data if n.get("impact_score", 0) >= 0.7
+    ][:5]  # 상위 5개만
+
+    # 키워드 추출 (제목에서 자주 등장하는 단어, 2글자 이상)
+    all_words = []
+    for n in news_data:
+        title = n.get("title", "")
+        # 간단한 한글 단어 추출 (2글자 이상)
+        words = [word.strip() for word in title.split() if len(word) >= 2 and word.isalpha()]
+        all_words.extend(words)
+
+    # 불용어 제거 (조사, 접속사 등)
+    stopwords = {"있는", "있다", "하는", "그리고", "이번", "올해", "작년", "지난", "최근"}
+    filtered_words = [w for w in all_words if w not in stopwords]
+
+    # 상위 5개 키워드
+    word_counts = Counter(filtered_words)
+    trending_keywords = [word for word, count in word_counts.most_common(5)]
+
+    # 최근 감성 변화 (최근 3일 vs 이전 4일)
+    # published_at 기준 정렬 (이미 정렬되어 있다고 가정)
+    recent_news = news_data[:int(total_count * 0.4)]  # 최근 40%
+    older_news = news_data[int(total_count * 0.4):]   # 이전 60%
+
+    if recent_news and older_news:
+        recent_avg = sum(n.get("sentiment_score", 0) for n in recent_news) / len(recent_news)
+        older_avg = sum(n.get("sentiment_score", 0) for n in older_news) / len(older_news)
+
+        if recent_avg > older_avg + 0.1:
+            sentiment_change = "개선"
+        elif recent_avg < older_avg - 0.1:
+            sentiment_change = "악화"
+        else:
+            sentiment_change = "불변"
+    else:
+        sentiment_change = "불변"
+
+    return {
+        "total_count": total_count,
+        "positive_count": positive_count,
+        "negative_count": negative_count,
+        "neutral_count": neutral_count,
+        "positive_ratio": round(positive_ratio, 1),
+        "negative_ratio": round(negative_ratio, 1),
+        "avg_sentiment_score": round(avg_sentiment, 2),
+        "avg_impact_score": round(avg_impact, 2),
+        "high_impact_news": high_impact_news,
+        "trending_keywords": trending_keywords,
+        "recent_sentiment_change": sentiment_change
+    }
+
+
 async def analyze_with_gpt4(
     symbol: str,
     symbol_name: str,
     price_data: Dict[str, Any],
     news_data: List[Dict[str, Any]],
     financial_data: Dict[str, Any] = None,
-    investor_data: Dict[str, Any] = None
+    investor_data: Dict[str, Any] = None,
+    analyst_opinion: Dict[str, Any] = None,  # 🔥 Phase 1.3
+    sector_info: Dict[str, Any] = None,      # 🔥 Phase 1.3
+    market_index: Dict[str, Any] = None,     # 🔥 Phase 1.3
+    credit_balance: List[Dict] = None,       # 🔥 Phase 1.3
+    short_selling: List[Dict] = None,        # 🔥 Phase 1.3
+    program_trading: List[Dict] = None,      # 🔥 Phase 1.3
+    institutional_flow: Dict[str, Any] = None  # 🔥 Phase 1.3
 ) -> Optional[Dict[str, Any]]:
     """
-    GPT-4 Turbo 기반 종목 분석
+    🔥 Phase 1.3 개선: GPT-4 Turbo 기반 종목 분석 (뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
     """
-    # 1. 뉴스 요약 텍스트 생성
-    news_summary_lines = []
-    for i, news in enumerate(news_data[:5], 1):
-        sentiment_text = "긍정" if news.get("sentiment_score", 0) > 0 else "부정" if news.get("sentiment_score", 0) < 0 else "중립"
-        news_summary_lines.append(
+    # 🔥 Phase 1.3: 뉴스 트렌드 분석 (7일 50개 전체 분석)
+    news_trend = analyze_news_trend(news_data)
+
+    # 고영향도 뉴스 텍스트 생성
+    high_impact_lines = []
+    for i, news in enumerate(news_trend["high_impact_news"], 1):
+        sentiment_text = "긍정" if news["sentiment_score"] > 0 else "부정" if news["sentiment_score"] < 0 else "중립"
+        high_impact_lines.append(
             f"{i}. {news['title']}\n"
-            f"   - 요약: {news.get('summary', '요약 없음')}\n"
-            f"   - 감성: {sentiment_text} ({news.get('sentiment_score', 0):.2f})\n"
-            f"   - 영향도: {news.get('impact_score', 0):.2f}\n"
+            f"   감성: {sentiment_text} ({news['sentiment_score']:.2f}), 영향도: {news['impact_score']:.2f}"
         )
 
-    news_summary_text = "\n".join(news_summary_lines) if news_summary_lines else "관련 뉴스 없음"
+    high_impact_text = "\n".join(high_impact_lines) if high_impact_lines else "고영향도 뉴스 없음"
+
+    # 뉴스 트렌드 요약 텍스트
+    news_trend_text = f"""
+📊 뉴스 트렌드 분석 (7일, 총 {news_trend['total_count']}개)
+- 긍정: {news_trend['positive_count']}개 ({news_trend['positive_ratio']}%)
+- 부정: {news_trend['negative_count']}개 ({news_trend['negative_ratio']}%)
+- 중립: {news_trend['neutral_count']}개
+- 평균 감성 점수: {news_trend['avg_sentiment_score']:.2f}
+- 평균 영향도: {news_trend['avg_impact_score']:.2f}
+- 최근 감성 변화: {news_trend['recent_sentiment_change']}
+- 트렌딩 키워드: {', '.join(news_trend['trending_keywords']) if news_trend['trending_keywords'] else '없음'}
+
+🔥 고영향도 뉴스 (impact ≥ 0.7):
+{high_impact_text}
+"""
 
     # 2. 재무 데이터 텍스트 생성
     financial_data = financial_data or {}
@@ -79,6 +211,64 @@ async def analyze_with_gpt4(
     investor_text = f"""
 - 외국인: {investor_data.get('foreign_net_buy', 0):+,}주, 기관: {investor_data.get('institution_net_buy', 0):+,}주
 """ if investor_data else "투자자 동향 데이터 없음"
+
+    # 🔥 Phase 1.3: 애널리스트 컨센서스 텍스트 생성
+    analyst_opinion = analyst_opinion or {}
+    analyst_text = ""
+    if analyst_opinion.get("total_count", 0) > 0:
+        analyst_text = f"""
+📈 애널리스트 컨센서스 (총 {analyst_opinion['total_count']}명)
+- 매수: {analyst_opinion.get('buy_count', 0)}명
+- 중립: {analyst_opinion.get('hold_count', 0)}명
+- 매도: {analyst_opinion.get('sell_count', 0)}명
+- 평균 목표가: {analyst_opinion.get('avg_target_price', 'N/A')}원
+"""
+    else:
+        analyst_text = "애널리스트 의견 없음"
+
+    # 🔥 Phase 1.3: 업종 정보 텍스트 생성
+    sector_info = sector_info or {}
+    sector_text = f"""
+🏢 업종: {sector_info.get('sector_name', 'N/A')} (코드: {sector_info.get('sector_code', 'N/A')})
+""" if sector_info.get("sector_name") else "업종 정보 없음"
+
+    # 🔥 Phase 1.3: 시장 지수 비교 텍스트 생성
+    market_index = market_index or {}
+    market_text = ""
+    if market_index.get("kospi_value"):
+        kospi_change = market_index.get('kospi_change_rate', 0)
+        stock_change = price_data.get('change_rate', 0)
+        relative_strength = "강세" if stock_change > kospi_change else "약세" if stock_change < kospi_change else "동조"
+
+        market_text = f"""
+📊 시장 대비 상대 강도
+- 코스피: {market_index['kospi_value']:.2f} ({kospi_change:+.2f}%)
+- 종목: {stock_change:+.2f}%
+- 상대 강도: {relative_strength} ({stock_change - kospi_change:+.2f}%p 차이)
+"""
+    else:
+        market_text = "시장 지수 데이터 없음"
+
+    # 🔥 Phase 1.3: 신용/공매도 트렌드 텍스트 생성
+    advanced_flow_text = ""
+    if credit_balance or short_selling or program_trading:
+        advanced_flow_text = "\n## 고급 매매 동향\n"
+
+        if credit_balance:
+            latest_credit = credit_balance[0] if credit_balance else {}
+            advanced_flow_text += f"- 신용잔고: {latest_credit.get('credit_balance', 'N/A')}\n"
+
+        if short_selling:
+            latest_short = short_selling[0] if short_selling else {}
+            advanced_flow_text += f"- 공매도 잔고: {latest_short.get('short_balance', 'N/A')}\n"
+
+        if program_trading:
+            latest_program = program_trading[0] if program_trading else {}
+            advanced_flow_text += f"- 프로그램 순매수: {latest_program.get('program_net_buy', 'N/A')}\n"
+
+        if institutional_flow:
+            advanced_flow_text += f"- 당일 외국인 순매수액: {institutional_flow.get('foreign_net_buy_amt', 0):+,}원\n"
+            advanced_flow_text += f"- 당일 기관 순매수액: {institutional_flow.get('institution_net_buy_amt', 0):+,}원\n"
 
     # 4. 고급 기술적 지표 텍스트 생성
     advanced_indicators = ""
@@ -95,14 +285,17 @@ async def analyze_with_gpt4(
 
     # 5. 프롬프트 생성
     prompt = f"""
-당신은 한국 주식 시장 전문 애널리스트입니다. 다음 정보를 바탕으로 종목을 종합 분석해주세요.
+당신은 한국 주식 시장 전문 애널리스트입니다. 다음 **확장된 정보**를 바탕으로 종목을 종합 분석해주세요.
 
 ## 종목 정보
 - 종목명: {symbol_name} ({symbol})
+{sector_text}
 
 ## 주가 데이터
 - 현재가: {price_data['current_price']:,}원 ({price_data['change_rate']:+.2f}%)
 - 거래량: {price_data['volume']:,}주
+
+{market_text}
 
 ## 기술적 지표
 - MA5: {price_data.get('ma5', 'N/A')}, MA20: {price_data.get('ma20', 'N/A')}, MA60: {price_data.get('ma60', 'N/A')}
@@ -116,8 +309,12 @@ async def analyze_with_gpt4(
 ## 투자자 매매 동향
 {investor_text}
 
-## 최근 뉴스
-{news_summary_text}
+{analyst_text}
+
+{advanced_flow_text}
+
+## 🔥 뉴스 트렌드 분석 (7일)
+{news_trend_text}
 
 ## 분석 요청
 다음 JSON 형식으로 응답해주세요:
@@ -138,12 +335,16 @@ async def analyze_with_gpt4(
   "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)"
 }}
 
-**중요 사항:**
-- 위험도는 변동성, 뉴스 부정도, 볼린저 밴드 이탈 여부를 고려하세요.
-- 투자 권고는 이동평균, RSI, MACD, 뉴스 감성, 외국인/기관 매매를 고려하세요.
-- 평가 점수는 기술적 지표, 재무비율, 투자자 동향, 뉴스 감성을 종합한 절대 점수입니다.
-- **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
-- 반드시 JSON 형식으로만 응답하세요.
+**🔥 Phase 1.3 개선된 분석 가이드라인:**
+1. **뉴스 트렌드 반영**: 7일간의 뉴스 감성 변화(개선/악화/불변), 고영향도 뉴스, 트렌딩 키워드를 종합 판단에 반드시 포함하세요.
+2. **애널리스트 컨센서스**: 증권사 애널리스트들의 의견 분포와 평균 목표가를 참고하세요. 다만 이것은 참고사항이며, 당신의 독립적 판단이 우선입니다.
+3. **업종/시장 맥락**: 코스피 대비 상대 강도를 분석하고, 시장 흐름 대비 종목의 강약을 평가하세요.
+4. **고급 매매 동향**: 신용잔고, 공매도, 프로그램매매, 당일 외국인/기관 순매수액을 종합하여 단기 수급을 판단하세요.
+5. **위험도 평가**: 변동성, 뉴스 부정도(negative_ratio), 볼린저 밴드 이탈, 부채비율, 공매도 잔고 증가 여부를 고려하세요.
+6. **투자 권고**: 기술적 지표, 뉴스 트렌드, 애널리스트 컨센서스, 투자자 동향을 종합하여 결정하세요.
+7. **평가 점수**: 모든 데이터를 종합한 절대 점수(0~100)입니다. 데이터가 많을수록 더 정확하게 평가할 수 있습니다.
+8. **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
+9. 반드시 JSON 형식으로만 응답하세요.
 """
 
     try:
@@ -205,26 +406,49 @@ async def analyze_with_claude(
     price_data: Dict[str, Any],
     news_data: List[Dict[str, Any]],
     financial_data: Dict[str, Any] = None,
-    investor_data: Dict[str, Any] = None
+    investor_data: Dict[str, Any] = None,
+    analyst_opinion: Dict[str, Any] = None,  # 🔥 Phase 1.3
+    sector_info: Dict[str, Any] = None,      # 🔥 Phase 1.3
+    market_index: Dict[str, Any] = None,     # 🔥 Phase 1.3
+    credit_balance: List[Dict] = None,       # 🔥 Phase 1.3
+    short_selling: List[Dict] = None,        # 🔥 Phase 1.3
+    program_trading: List[Dict] = None,      # 🔥 Phase 1.3
+    institutional_flow: Dict[str, Any] = None  # 🔥 Phase 1.3
 ) -> Optional[Dict[str, Any]]:
     """
-    Claude 3.5 Sonnet 기반 종목 분석 (리스크 분석 전문가)
+    🔥 Phase 1.3 개선: Claude 3.5 Sonnet 기반 종목 분석 (리스크 분석 전문가, 뉴스 트렌드, 애널리스트 의견, 업종/시장 맥락 추가)
 
     Returns:
         Dict: AI 분석 결과 또는 None (실패 시)
     """
-    # 1. 뉴스 요약 텍스트 생성
-    news_summary_lines = []
-    for i, news in enumerate(news_data[:5], 1):
-        sentiment_text = "긍정" if news.get("sentiment_score", 0) > 0 else "부정" if news.get("sentiment_score", 0) < 0 else "중립"
-        news_summary_lines.append(
+    # 🔥 Phase 1.3: 뉴스 트렌드 분석 (7일 50개 전체 분석)
+    news_trend = analyze_news_trend(news_data)
+
+    # 고영향도 뉴스 텍스트 생성
+    high_impact_lines = []
+    for i, news in enumerate(news_trend["high_impact_news"], 1):
+        sentiment_text = "긍정" if news["sentiment_score"] > 0 else "부정" if news["sentiment_score"] < 0 else "중립"
+        high_impact_lines.append(
             f"{i}. {news['title']}\n"
-            f"   - 요약: {news.get('summary', '요약 없음')}\n"
-            f"   - 감성: {sentiment_text} ({news.get('sentiment_score', 0):.2f})\n"
-            f"   - 영향도: {news.get('impact_score', 0):.2f}\n"
+            f"   감성: {sentiment_text} ({news['sentiment_score']:.2f}), 영향도: {news['impact_score']:.2f}"
         )
 
-    news_summary_text = "\n".join(news_summary_lines) if news_summary_lines else "관련 뉴스 없음"
+    high_impact_text = "\n".join(high_impact_lines) if high_impact_lines else "고영향도 뉴스 없음"
+
+    # 뉴스 트렌드 요약 텍스트
+    news_trend_text = f"""
+📊 뉴스 트렌드 분석 (7일, 총 {news_trend['total_count']}개)
+- 긍정: {news_trend['positive_count']}개 ({news_trend['positive_ratio']}%)
+- 부정: {news_trend['negative_count']}개 ({news_trend['negative_ratio']}%)
+- 중립: {news_trend['neutral_count']}개
+- 평균 감성 점수: {news_trend['avg_sentiment_score']:.2f}
+- 평균 영향도: {news_trend['avg_impact_score']:.2f}
+- 최근 감성 변화: {news_trend['recent_sentiment_change']}
+- 트렌딩 키워드: {', '.join(news_trend['trending_keywords']) if news_trend['trending_keywords'] else '없음'}
+
+🔥 고영향도 뉴스 (impact ≥ 0.7):
+{high_impact_text}
+"""
 
     # 2. 재무 데이터 텍스트 생성
     financial_data = financial_data or {}
@@ -239,26 +463,87 @@ async def analyze_with_claude(
 - 외국인: {investor_data.get('foreign_net_buy', 0):+,}주, 기관: {investor_data.get('institution_net_buy', 0):+,}주
 """ if investor_data else "투자자 동향 데이터 없음"
 
+    # 🔥 Phase 1.3: 애널리스트 컨센서스 텍스트 생성
+    analyst_opinion = analyst_opinion or {}
+    analyst_text = ""
+    if analyst_opinion.get("total_count", 0) > 0:
+        analyst_text = f"""
+📈 애널리스트 컨센서스 (총 {analyst_opinion['total_count']}명)
+- 매수: {analyst_opinion.get('buy_count', 0)}명
+- 중립: {analyst_opinion.get('hold_count', 0)}명
+- 매도: {analyst_opinion.get('sell_count', 0)}명
+- 평균 목표가: {analyst_opinion.get('avg_target_price', 'N/A')}원
+"""
+    else:
+        analyst_text = "애널리스트 의견 없음"
+
+    # 🔥 Phase 1.3: 업종 정보 텍스트 생성
+    sector_info = sector_info or {}
+    sector_text = f"""
+🏢 업종: {sector_info.get('sector_name', 'N/A')} (코드: {sector_info.get('sector_code', 'N/A')})
+""" if sector_info.get("sector_name") else "업종 정보 없음"
+
+    # 🔥 Phase 1.3: 시장 지수 비교 텍스트 생성
+    market_index = market_index or {}
+    market_text = ""
+    if market_index.get("kospi_value"):
+        kospi_change = market_index.get('kospi_change_rate', 0)
+        stock_change = price_data.get('change_rate', 0)
+        relative_strength = "강세" if stock_change > kospi_change else "약세" if stock_change < kospi_change else "동조"
+
+        market_text = f"""
+📊 시장 대비 상대 강도
+- 코스피: {market_index['kospi_value']:.2f} ({kospi_change:+.2f}%)
+- 종목: {stock_change:+.2f}%
+- 상대 강도: {relative_strength} ({stock_change - kospi_change:+.2f}%p 차이)
+"""
+    else:
+        market_text = "시장 지수 데이터 없음"
+
+    # 🔥 Phase 1.3: 신용/공매도 트렌드 텍스트 생성
+    advanced_flow_text = ""
+    if credit_balance or short_selling or program_trading:
+        advanced_flow_text = "\n## 🚨 고급 매매 동향 (리스크 지표)\n"
+
+        if credit_balance:
+            latest_credit = credit_balance[0] if credit_balance else {}
+            advanced_flow_text += f"- 신용잔고: {latest_credit.get('credit_balance', 'N/A')}\n"
+
+        if short_selling:
+            latest_short = short_selling[0] if short_selling else {}
+            advanced_flow_text += f"- 공매도 잔고: {latest_short.get('short_balance', 'N/A')} (⚠️ 공매도 증가 시 하방 압력)\n"
+
+        if program_trading:
+            latest_program = program_trading[0] if program_trading else {}
+            advanced_flow_text += f"- 프로그램 순매수: {latest_program.get('program_net_buy', 'N/A')}\n"
+
+        if institutional_flow:
+            advanced_flow_text += f"- 당일 외국인 순매수액: {institutional_flow.get('foreign_net_buy_amt', 0):+,}원\n"
+            advanced_flow_text += f"- 당일 기관 순매수액: {institutional_flow.get('institution_net_buy_amt', 0):+,}원\n"
+
     # 4. 고급 기술적 지표 텍스트 생성
     advanced_indicators = ""
     if price_data.get('rsi'):
         advanced_indicators = f"""
 ## 고급 기술적 지표
 - RSI: {price_data.get('rsi', 'N/A')}, MACD: {price_data.get('macd', 'N/A')}
-- ADX: {price_data.get('adx', 'N/A')}, ATR: {price_data.get('atr', 'N/A')} (변동성)
+- ADX: {price_data.get('adx', 'N/A')}, ATR: {price_data.get('atr', 'N/A')} (변동성 지표)
 - Williams %R: {price_data.get('williams_r', 'N/A')} (과매수/과매도)
 """
 
     # 5. 프롬프트 생성
     prompt = f"""
-당신은 한국 주식 시장 리스크 분석 전문가입니다. 다음 정보를 바탕으로 종목을 분석하되, **리스크 요인**과 **변동성**에 특히 집중해주세요.
+당신은 한국 주식 시장 리스크 분석 전문가입니다. 다음 **확장된 정보**를 바탕으로 종목을 분석하되, **리스크 요인**과 **변동성**에 특히 집중해주세요.
 
 ## 종목 정보
 - 종목명: {symbol_name} ({symbol})
+{sector_text}
 
 ## 주가 데이터
 - 현재가: {price_data['current_price']:,}원 ({price_data['change_rate']:+.2f}%)
 - 거래량: {price_data['volume']:,}주
+
+{market_text}
 
 ## 기술적 지표
 - MA5: {price_data.get('ma5', 'N/A')}, MA20: {price_data.get('ma20', 'N/A')}
@@ -272,8 +557,12 @@ async def analyze_with_claude(
 ## 투자자 매매 동향
 {investor_text}
 
-## 최근 뉴스
-{news_summary_text}
+{analyst_text}
+
+{advanced_flow_text}
+
+## 🔥 뉴스 트렌드 분석 (7일)
+{news_trend_text}
 
 ## 분석 요청
 다음 JSON 형식으로 응답해주세요:
@@ -294,12 +583,16 @@ async def analyze_with_claude(
   "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)"
 }}
 
-**중요 사항:**
-- 위험도는 변동성(ATR), 부채비율, 뉴스 부정도, 볼린저 밴드 이탈을 중점적으로 평가하세요.
-- 투자 권고는 리스크-리워드 비율을 고려하세요.
-- 평가 점수는 보수적으로 책정하세요 (리스크가 크면 점수 낮춤).
-- **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
-- 반드시 JSON 형식으로만 응답하세요.
+**🔥 Phase 1.3 개선된 리스크 중심 분석 가이드라인:**
+1. **뉴스 리스크 평가**: 7일간 뉴스 부정 비율이 높거나(>50%), 고영향도 부정 뉴스가 많으면 위험도를 높이세요. 최근 감성이 악화되었다면 더욱 주의하세요.
+2. **공매도/신용 리스크**: 공매도 잔고 증가는 하방 압력 신호입니다. 신용잔고 급증은 변동성 확대 가능성을 의미합니다.
+3. **변동성 지표**: ATR, 볼린저 밴드 이탈, Williams %R을 종합하여 변동성을 평가하세요.
+4. **애널리스트 vs 실제**: 애널리스트 컨센서스가 낙관적이어도, 실제 매매 동향(외국인/기관 순매도)이 부정적이면 리스크를 강조하세요.
+5. **시장 대비 약세**: 코스피가 상승하는데 종목이 하락하면 상대적 약세로 판단하고 원인을 분석하세요.
+6. **부채비율 경고**: 부채비율이 200% 이상이면 재무 리스크를 명시적으로 언급하세요.
+7. **평가 점수**: 리스크가 클수록 보수적으로 책정하세요. 데이터가 풍부할수록 정확도가 높아집니다.
+8. **심화 분석 필드는 필수**입니다. 리스크 요인을 구체적으로 나열하세요.
+9. 반드시 JSON 형식으로만 응답하세요.
 """
 
     try:
@@ -479,18 +772,32 @@ async def analyze_with_ensemble(
     price_data: Dict[str, Any],
     news_data: List[Dict[str, Any]],
     financial_data: Dict[str, Any] = None,
-    investor_data: Dict[str, Any] = None
+    investor_data: Dict[str, Any] = None,
+    analyst_opinion: Dict[str, Any] = None,  # 🔥 Phase 1.3
+    sector_info: Dict[str, Any] = None,      # 🔥 Phase 1.3
+    market_index: Dict[str, Any] = None,     # 🔥 Phase 1.3
+    credit_balance: List[Dict] = None,       # 🔥 Phase 1.3
+    short_selling: List[Dict] = None,        # 🔥 Phase 1.3
+    program_trading: List[Dict] = None,      # 🔥 Phase 1.3
+    institutional_flow: Dict[str, Any] = None  # 🔥 Phase 1.3
 ) -> Dict[str, Any]:
     """
-    AI Ensemble 종목 분석 - GPT-4 + Claude 병렬 실행 후 투표
+    🔥 Phase 1.3 개선: AI Ensemble 종목 분석 - GPT-4 + Claude 병렬 실행 후 투표 (확장 데이터 반영)
 
     Args:
         symbol: 종목 코드
         symbol_name: 종목명
         price_data: 주가 데이터 (기술적 지표 포함)
-        news_data: 뉴스 데이터 리스트
+        news_data: 뉴스 데이터 리스트 (7일 최대 50개)
         financial_data: 재무 데이터 (선택)
         investor_data: 투자자 동향 (선택)
+        analyst_opinion: 애널리스트 의견 (선택)
+        sector_info: 업종 정보 (선택)
+        market_index: 시장 지수 (선택)
+        credit_balance: 신용잔고 추이 (선택)
+        short_selling: 공매도 추이 (선택)
+        program_trading: 프로그램매매 추이 (선택)
+        institutional_flow: 당일 외국인/기관 매매 (선택)
 
     Returns:
         Dict: 앙상블 분석 결과
@@ -505,10 +812,18 @@ async def analyze_with_ensemble(
     print(f"🤖 AI Ensemble 분석 시작: {symbol_name} ({symbol})")
     print(f"{'='*60}")
 
-    # 1. GPT-4와 Claude를 병렬 실행
+    # 🔥 Phase 1.3: GPT-4와 Claude를 병렬 실행 (확장 데이터 전달)
     try:
-        gpt4_task = analyze_with_gpt4(symbol, symbol_name, price_data, news_data, financial_data, investor_data)
-        claude_task = analyze_with_claude(symbol, symbol_name, price_data, news_data, financial_data, investor_data)
+        gpt4_task = analyze_with_gpt4(
+            symbol, symbol_name, price_data, news_data, financial_data, investor_data,
+            analyst_opinion, sector_info, market_index, credit_balance, short_selling,
+            program_trading, institutional_flow
+        )
+        claude_task = analyze_with_claude(
+            symbol, symbol_name, price_data, news_data, financial_data, investor_data,
+            analyst_opinion, sector_info, market_index, credit_balance, short_selling,
+            program_trading, institutional_flow
+        )
 
         gpt4_result, claude_result = await asyncio.gather(gpt4_task, claude_task)
 
