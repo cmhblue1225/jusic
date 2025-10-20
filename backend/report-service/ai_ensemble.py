@@ -332,10 +332,29 @@ async def analyze_with_gpt4(
   "fundamental_analysis": "기본적 분석 상세 (3~4문장, PER/PBR/ROE 등 해석)",
   "market_sentiment": "시장 심리 분석 (2~3문장, 투자자 동향 포함)",
   "catalysts": "긍정적 촉매 요인 (3~5개 항목, 줄바꿈으로 구분)",
-  "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)"
+  "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)",
+  "timeframe_analysis": {{
+    "short_term": {{
+      "outlook": "단기 전망 (1주~1개월, 'bullish'/'bearish'/'neutral')",
+      "key_factors": "단기 핵심 요인 (2~3문장, 기술적 지표 및 단기 뉴스 중심)",
+      "entry_price": "단기 진입가 (숫자, 예: 65000)",
+      "target_price": "단기 목표가 (숫자, 예: 72000)",
+      "stop_loss": "단기 손절가 (숫자, 예: 62000)"
+    }},
+    "medium_term": {{
+      "outlook": "중기 전망 (1~3개월, 'bullish'/'bearish'/'neutral')",
+      "key_factors": "중기 핵심 요인 (2~3문장, 재무 및 업종 트렌드 중심)",
+      "target_price": "중기 목표가 (숫자, 예: 80000)"
+    }},
+    "long_term": {{
+      "outlook": "장기 전망 (6개월~1년, 'bullish'/'bearish'/'neutral')",
+      "key_factors": "장기 핵심 요인 (2~3문장, 펀더멘털 및 성장성 중심)",
+      "target_price": "장기 목표가 (숫자, 예: 95000)"
+    }}
+  }}
 }}
 
-**🔥 Phase 1.3 개선된 분석 가이드라인:**
+**🔥 Phase 1.3 + 3.1 개선된 분석 가이드라인:**
 1. **뉴스 트렌드 반영**: 7일간의 뉴스 감성 변화(개선/악화/불변), 고영향도 뉴스, 트렌딩 키워드를 종합 판단에 반드시 포함하세요.
 2. **애널리스트 컨센서스**: 증권사 애널리스트들의 의견 분포와 평균 목표가를 참고하세요. 다만 이것은 참고사항이며, 당신의 독립적 판단이 우선입니다.
 3. **업종/시장 맥락**: 코스피 대비 상대 강도를 분석하고, 시장 흐름 대비 종목의 강약을 평가하세요.
@@ -343,8 +362,12 @@ async def analyze_with_gpt4(
 5. **위험도 평가**: 변동성, 뉴스 부정도(negative_ratio), 볼린저 밴드 이탈, 부채비율, 공매도 잔고 증가 여부를 고려하세요.
 6. **투자 권고**: 기술적 지표, 뉴스 트렌드, 애널리스트 컨센서스, 투자자 동향을 종합하여 결정하세요.
 7. **평가 점수**: 모든 데이터를 종합한 절대 점수(0~100)입니다. 데이터가 많을수록 더 정확하게 평가할 수 있습니다.
-8. **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
-9. 반드시 JSON 형식으로만 응답하세요.
+8. **🆕 멀티 타임프레임 분석** (Phase 3.1):
+   - **단기 (1주~1개월)**: RSI, MACD, 볼린저밴드 등 기술적 지표 중심. 진입가/목표가/손절가를 구체적 숫자로 제시.
+   - **중기 (1~3개월)**: 실적 발표, 업종 트렌드, 애널리스트 컨센서스 반영. 목표가 제시.
+   - **장기 (6개월~1년)**: 펀더멘털(PER/PBR/ROE), 성장성, 경쟁력 분석. 장기 목표가 제시.
+9. **심화 분석 필드는 필수**입니다. 데이터가 부족해도 현재 정보 기반으로 작성하세요.
+10. 반드시 JSON 형식으로만 응답하세요.
 """
 
     try:
@@ -381,6 +404,8 @@ async def analyze_with_gpt4(
             "market_sentiment": ai_response.get("market_sentiment", ""),
             "catalysts": ai_response.get("catalysts", ""),
             "risk_factors": ai_response.get("risk_factors", ""),
+            # 🔥 Phase 3.1: 멀티 타임프레임 분석 추가
+            "timeframe_analysis": ai_response.get("timeframe_analysis", {}),
             "raw_response": ai_response
         }
 
@@ -580,7 +605,26 @@ async def analyze_with_claude(
   "fundamental_analysis": "기본적 분석 상세 (3~4문장, PER/PBR/ROE 등 해석)",
   "market_sentiment": "시장 심리 분석 (2~3문장, 투자자 동향 포함)",
   "catalysts": "긍정적 촉매 요인 (3~5개 항목, 줄바꿈으로 구분)",
-  "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)"
+  "risk_factors": "주요 리스크 요인 (3~5개 항목, 줄바꿈으로 구분)",
+  "timeframe_analysis": {{
+    "short_term": {{
+      "outlook": "단기 전망 (1주~1개월, 'bullish'/'bearish'/'neutral')",
+      "key_factors": "단기 핵심 요인 (2~3문장, 기술적 지표 및 단기 뉴스 중심)",
+      "entry_price": "단기 진입가 (숫자, 예: 65000)",
+      "target_price": "단기 목표가 (숫자, 예: 72000)",
+      "stop_loss": "단기 손절가 (숫자, 예: 62000)"
+    }},
+    "medium_term": {{
+      "outlook": "중기 전망 (1~3개월, 'bullish'/'bearish'/'neutral')",
+      "key_factors": "중기 핵심 요인 (2~3문장, 재무 및 업종 트렌드 중심)",
+      "target_price": "중기 목표가 (숫자, 예: 80000)"
+    }},
+    "long_term": {{
+      "outlook": "장기 전망 (6개월~1년, 'bullish'/'bearish'/'neutral')",
+      "key_factors": "장기 핵심 요인 (2~3문장, 펀더멘털 및 성장성 중심)",
+      "target_price": "장기 목표가 (숫자, 예: 95000)"
+    }}
+  }}
 }}
 
 **🔥 Phase 1.3 개선된 리스크 중심 분석 가이드라인:**
@@ -637,6 +681,8 @@ async def analyze_with_claude(
             "market_sentiment": ai_response.get("market_sentiment", ""),
             "catalysts": ai_response.get("catalysts", ""),
             "risk_factors": ai_response.get("risk_factors", ""),
+            # 🔥 Phase 3.1: 멀티 타임프레임 분석 추가
+            "timeframe_analysis": ai_response.get("timeframe_analysis", {}),
             "raw_response": ai_response
         }
 
