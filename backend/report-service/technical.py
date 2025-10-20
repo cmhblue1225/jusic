@@ -23,8 +23,13 @@ def calculate_moving_average(prices: List[float], period: int) -> Optional[float
     if len(prices) < period:
         return None
 
+    # None 값 필터링
+    filtered_prices = [p for p in prices if p is not None]
+    if len(filtered_prices) < period:
+        return None
+
     # 최근 period일 평균
-    recent_prices = prices[-period:]
+    recent_prices = filtered_prices[-period:]
     return float(np.mean(recent_prices))
 
 
@@ -42,14 +47,19 @@ def calculate_volume_ratio(volumes: List[int], period: int = 20) -> Optional[flo
     if len(volumes) < period + 1:
         return None
 
+    # None 값 필터링
+    filtered_volumes = [v for v in volumes if v is not None]
+    if len(filtered_volumes) < period + 1:
+        return None
+
     # 최근 period일 평균 거래량 (당일 제외)
-    avg_volume = np.mean(volumes[-(period + 1):-1])
+    avg_volume = np.mean(filtered_volumes[-(period + 1):-1])
 
     if avg_volume == 0:
         return None
 
     # 당일 거래량 / 평균 거래량
-    current_volume = volumes[-1]
+    current_volume = filtered_volumes[-1]
     return float(current_volume / avg_volume)
 
 
@@ -67,8 +77,13 @@ def calculate_volatility(prices: List[float], period: int = 20) -> Optional[floa
     if len(prices) < period:
         return None
 
+    # None 값 필터링
+    filtered_prices = [p for p in prices if p is not None]
+    if len(filtered_prices) < period:
+        return None
+
     # 최근 period일 종가의 표준편차
-    recent_prices = prices[-period:]
+    recent_prices = filtered_prices[-period:]
     return float(np.std(recent_prices))
 
 
@@ -87,8 +102,13 @@ def calculate_bollinger_bands(prices: List[float], period: int = 20, num_std: fl
     if len(prices) < period:
         return None
 
+    # None 값 필터링
+    filtered_prices = [p for p in prices if p is not None]
+    if len(filtered_prices) < period:
+        return None
+
     # 최근 period일 데이터
-    recent_prices = prices[-period:]
+    recent_prices = filtered_prices[-period:]
 
     middle = np.mean(recent_prices)  # 중간선 (이동평균)
     std = np.std(recent_prices)      # 표준편차
@@ -157,7 +177,7 @@ def calculate_all_indicators(ohlcv_data: List[Dict[str, Any]], include_advanced:
     latest = ohlcv_data[-1]
 
     # 등락률 계산 (전일 대비)
-    if len(close_prices) >= 2:
+    if len(close_prices) >= 2 and close_prices[-2] is not None and latest["close"] is not None:
         prev_close = close_prices[-2]
         change_rate = ((latest["close"] - prev_close) / prev_close) * 100
     else:
