@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 from dotenv import load_dotenv
 import httpx
-from datetime import datetime
+from datetime import datetime, timedelta
 from supabase import create_client, Client
 from nlp.ner import StockNER
 from naver_api import NaverNewsAPI
