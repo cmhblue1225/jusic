@@ -498,15 +498,17 @@ async def generate_report(
         )
 
         # 🔥 Phase 5.2: 매매 타이밍 신호 생성
-        print(f"📊 매매 신호 생성...")
+        print(f"📊 매매 신호 생성... (버전: v2.1 - risk_scores 변환 포함)")
 
         # ai_result의 risk_score를 risk_scores 형식으로 변환
         ai_risk_score = ai_result.get("risk_score", 50)
+        print(f"🔍 [DEBUG] ai_risk_score: {ai_risk_score} (type: {type(ai_risk_score)})")
         risk_scores_formatted = {
             "short_term": {"score": ai_risk_score},
             "mid_term": {"score": ai_risk_score},
             "long_term": {"score": ai_risk_score}
         }
+        print(f"🔍 [DEBUG] risk_scores_formatted: {risk_scores_formatted}")
 
         trading_signals = generate_trading_signals(
             current_price=indicators["current_price"],
