@@ -485,15 +485,28 @@ async def bookmark_report(
         related_news_ids = [news["id"] for news in (news_result.data or [])]
 
         # 3. Supabase에 북마크 저장
+        # bigint 타입 필드 정수 변환 (소수점 제거)
+        bigint_fields = ["volume", "obv", "foreign_net_buy", "institution_net_buy", "individual_net_buy"]
+
         bookmark_data = {
             "user_id": user_id,
             "symbol": symbol,
             "symbol_name": symbol_name,
             "report_date": report_date_str,
-            **{k: v for k, v in cached_report.items() if k not in ["symbol", "symbol_name", "report_date", "cached", "related_news_count"]},
             "related_news_ids": related_news_ids,
             "is_bookmarked": True
         }
+
+        # 캐시 데이터 추가 (cached, related_news_count 제외)
+        for k, v in cached_report.items():
+            if k in ["symbol", "symbol_name", "report_date", "cached", "related_news_count"]:
+                continue
+
+            # bigint 필드는 정수로 변환
+            if k in bigint_fields and v is not None:
+                bookmark_data[k] = int(float(v))
+            else:
+                bookmark_data[k] = v
 
         result = supabase.table("stock_reports").upsert(
             bookmark_data,
