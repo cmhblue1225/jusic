@@ -202,6 +202,124 @@ def get_user_id_from_token(authorization: Optional[str]) -> Optional[str]:
         return None
 
 
+# ========== 차트 데이터 준비 함수 ==========
+
+def prepare_chart_data(
+    ohlcv_data: List[Dict[str, Any]],
+    indicators: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    실제 OHLCV 데이터를 차트용 포맷으로 변환
+
+    Args:
+        ohlcv_data: 일봉 데이터 (51일치)
+        indicators: 기술적 지표 (MA5, MA20, RSI, MACD 등)
+
+    Returns:
+        Dict: 캔들스틱 차트 + 거래량 + 기술적 지표 오버레이 데이터
+    """
+    if not ohlcv_data:
+        return {
+            "type": "candlestick",
+            "data": [],
+            "volume_data": [],
+            "indicators": {},
+            "technical_overlay": {},
+            "data_source": "no_data"
+        }
+
+    # 1. 캔들스틱 + 거래량 데이터 변환
+    candlestick_data = []
+    volume_data = []
+
+    for item in ohlcv_data:
+        candlestick_data.append({
+            "date": item["date"],
+            "open": item["open"],
+            "high": item["high"],
+            "low": item["low"],
+            "close": item["close"]
+        })
+
+        volume_data.append({
+            "date": item["date"],
+            "volume": item["volume"]
+        })
+
+    # 2. 이동평균선 데이터 (MA5, MA20 오버레이)
+    # MA 계산을 위해 최근 60일 close 추출
+    close_prices = [item["close"] for item in ohlcv_data]
+
+    ma5_data = []
+    ma20_data = []
+
+    for i, item in enumerate(ohlcv_data):
+        # MA5 계산
+        if i >= 4:  # 최소 5개 데이터 필요
+            ma5_value = sum(close_prices[i-4:i+1]) / 5
+            ma5_data.append({
+                "date": item["date"],
+                "value": round(ma5_value, 2)
+            })
+
+        # MA20 계산
+        if i >= 19:  # 최소 20개 데이터 필요
+            ma20_value = sum(close_prices[i-19:i+1]) / 20
+            ma20_data.append({
+                "date": item["date"],
+                "value": round(ma20_value, 2)
+            })
+
+    # 3. 기술적 지표 오버레이 (RSI, MACD, Bollinger Bands)
+    technical_overlay = {
+        "rsi": {
+            "current_value": indicators.get("rsi"),
+            "overbought_line": 70,
+            "oversold_line": 30,
+            "color": "#FF6B6B"
+        },
+        "macd": {
+            "macd": indicators.get("macd"),
+            "signal": indicators.get("macd_signal"),
+            "histogram": indicators.get("macd_histogram"),
+            "color": "#4ECDC4"
+        },
+        "bollinger_bands": {
+            "upper": indicators.get("bollinger_upper"),
+            "middle": indicators.get("ma20"),  # 중간선은 MA20
+            "lower": indicators.get("bollinger_lower"),
+            "color": "#95E1D3"
+        }
+    }
+
+    return {
+        "type": "candlestick",
+        "data": candlestick_data,
+        "volume_data": volume_data,
+        "indicators": {
+            "ma5": {
+                "data": ma5_data,
+                "color": "#FF6B6B",
+                "width": 2,
+                "label": "5일 이동평균"
+            },
+            "ma20": {
+                "data": ma20_data,
+                "color": "#4ECDC4",
+                "width": 2,
+                "label": "20일 이동평균"
+            }
+        },
+        "technical_overlay": technical_overlay,
+        "data_source": "kis_api",  # 실제 데이터 사용 표시
+        "data_points": len(candlestick_data),
+        "date_range": {
+            "start": ohlcv_data[0]["date"] if ohlcv_data else None,
+            "end": ohlcv_data[-1]["date"] if ohlcv_data else None
+        }
+    }
+
+
 # ========== API 엔드포인트 ==========
 
 @app.get("/health")
@@ -451,6 +569,11 @@ async def generate_report(
         # 3. 기술적 지표 계산 (고급 지표 포함)
         print(f"📊 기술적 지표 계산 중 (22개 지표)...")
         indicators = calculate_all_indicators(ohlcv_data, include_advanced=True)
+
+        # 3-1. 차트 데이터 준비 (캔들스틱 + 거래량 + 기술적 지표 오버레이)
+        print(f"📈 차트 데이터 준비 중...")
+        chart_data = prepare_chart_data(ohlcv_data, indicators)
+        print(f"✅ 차트 데이터 준비 완료 ({chart_data['data_points']}개 데이터 포인트)")
 
         # 4. AI 앙상블 분석 (GPT-4 + Claude)
         print(f"🤖 AI Ensemble 분석 시작...")
@@ -718,6 +841,9 @@ async def generate_report(
                 # 🔥 종합 위험도 (기술적 + 재무 + AI)
                 "comprehensive_risk": trading_signals.get("comprehensive_risk", {})
             },
+
+            # 🔥 차트 데이터 (캔들스틱 + 거래량 + 기술적 지표 오버레이)
+            "chart_data": chart_data,
 
             # 메타데이터
             "cached": False,
