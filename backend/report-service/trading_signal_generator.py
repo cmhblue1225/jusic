@@ -206,29 +206,38 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
     bb_upper = indicators.get("bollinger_upper")
     bb_lower = indicators.get("bollinger_lower")
 
+    # bb_position 변수 초기화
+    bb_position = "middle"
+
     if bb_upper and bb_lower and current_price > 0:
         # 하단 이탈: 가격이 하단 밴드보다 낮음
         if current_price < bb_lower:
             signals.append("볼린저 밴드 하단 이탈 (매수 신호)")
             scores.append(50)
+            bb_position = "below_lower"
         # 상단 이탈: 가격이 상단 밴드보다 높음
         elif current_price > bb_upper:
             signals.append("볼린저 밴드 상단 이탈 (매도 신호)")
             scores.append(-50)
+            bb_position = "above_upper"
         # 하단 근접: 가격이 하단 밴드의 102% 이내
         elif current_price < bb_lower * 1.02:
             signals.append("볼린저 밴드 하단 근접")
             scores.append(30)
+            bb_position = "near_lower"
         # 상단 근접: 가격이 상단 밴드의 98% 이상
         elif current_price > bb_upper * 0.98:
             signals.append("볼린저 밴드 상단 근접")
             scores.append(-30)
+            bb_position = "near_upper"
         else:
             signals.append("볼린저 밴드 중간")
             scores.append(0)
+            bb_position = "middle"
     else:
         signals.append("볼린저 밴드 데이터 없음")
         scores.append(0)
+        bb_position = "unknown"
 
     # 4. 이동평균선 신호
     ma_trend = indicators.get("moving_average_trend") or "neutral"
