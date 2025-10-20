@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useNewsStore } from '../stores/newsStore';
 import { useWatchlistStore } from '../stores/watchlistStore';
+import { usePortfolioStore } from '../stores/portfolioStore';
 import { useAlertStore } from '../stores/alertStore';
 import NewsCard from '../components/NewsCard';
 
@@ -10,10 +11,18 @@ export default function News() {
   const { user, signOut } = useAuthStore();
   const { items: news, loading, error, fetchNews, fetchNewsBySymbol, selectedSymbol, clearFilter, clearError } = useNewsStore();
   const { items: watchlist } = useWatchlistStore();
+  const { items: portfolio } = usePortfolioStore();
   const { ttsConfig } = useAlertStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'impact'>('date'); // 정렬 기준
+
+  // 사용자의 모든 종목 코드 (보유 + 관심)
+  const userSymbols = useMemo(() => {
+    const portfolioSymbols = portfolio.map((p) => p.symbol);
+    const watchlistSymbols = watchlist.map((w) => w.symbol);
+    return [...new Set([...portfolioSymbols, ...watchlistSymbols])];
+  }, [portfolio, watchlist]);
 
   // 뉴스 로드 (사용자별 필터링)
   useEffect(() => {
@@ -22,10 +31,11 @@ export default function News() {
     }
   }, [user, fetchNews]);
 
-  // 관심 종목 로드
+  // 보유 종목 & 관심 종목 로드
   useEffect(() => {
     if (user) {
       useWatchlistStore.getState().fetchWatchlist(user.id);
+      usePortfolioStore.getState().fetchPortfolio(user.id);
     }
   }, [user]);
 
@@ -258,7 +268,12 @@ export default function News() {
           ) : (
             <div className="space-y-4">
               {sortedNews.map((newsItem) => (
-                <NewsCard key={newsItem.id} news={newsItem} onReadAloud={handleReadAloud} />
+                <NewsCard
+                  key={newsItem.id}
+                  news={newsItem}
+                  onReadAloud={handleReadAloud}
+                  userSymbols={userSymbols} // 사용자 종목 전달
+                />
               ))}
             </div>
           )}

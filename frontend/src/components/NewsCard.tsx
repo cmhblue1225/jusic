@@ -4,9 +4,10 @@ import type { NewsItem } from '../stores/newsStore';
 interface NewsCardProps {
   news: NewsItem;
   onReadAloud?: (text: string) => void;
+  userSymbols?: string[]; // 사용자의 보유/관심 종목 코드 (강조 표시용)
 }
 
-export default function NewsCard({ news, onReadAloud }: NewsCardProps) {
+export default function NewsCard({ news, onReadAloud, userSymbols = [] }: NewsCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // 감성 점수 색상 결정
@@ -137,18 +138,28 @@ export default function NewsCard({ news, onReadAloud }: NewsCardProps) {
         )}
       </div>
 
-      {/* 관련 종목 */}
+      {/* 관련 종목 (사용자 종목 강조) */}
       {news.related_symbols && news.related_symbols.length > 0 && (
         <div className="mb-3">
+          <div className="text-xs text-gray-500 mb-1">관련 종목:</div>
           <div className="flex flex-wrap gap-2">
-            {news.related_symbols.map((symbol) => (
-              <span
-                key={symbol}
-                className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-medium"
-              >
-                {symbol}
-              </span>
-            ))}
+            {news.related_symbols.map((symbol) => {
+              const isUserSymbol = userSymbols.includes(symbol);
+              return (
+                <span
+                  key={symbol}
+                  className={`text-xs px-2 py-1 rounded font-medium ${
+                    isUserSymbol
+                      ? 'bg-green-100 text-green-800 border-2 border-green-400 font-bold' // 사용자 종목: 강조
+                      : 'bg-gray-100 text-gray-600' // 기타 종목: 회색
+                  }`}
+                  title={isUserSymbol ? '내 종목' : '기타 종목'}
+                >
+                  {isUserSymbol && '⭐ '}
+                  {symbol}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
