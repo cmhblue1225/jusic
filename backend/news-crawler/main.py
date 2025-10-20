@@ -15,6 +15,8 @@ from supabase import create_client, Client
 from nlp.ner import StockNER
 from naver_api import NaverNewsAPI
 from google_news_rss import GoogleNewsRSS  # 🔥 Phase 2.1
+from naver_discussion_crawler import NaverDiscussionCrawler  # 🔥 Phase 2.2
+from dart_disclosure_crawler import DartDisclosureCrawler  # 🔥 Phase 2.3
 
 load_dotenv()
 
@@ -40,6 +42,12 @@ naver_api = NaverNewsAPI()
 
 # 🔥 Phase 2.1: Google News RSS 클라이언트 초기화
 google_news = GoogleNewsRSS()
+
+# 🔥 Phase 2.2: 네이버 토론방 크롤러 초기화
+naver_discussion = NaverDiscussionCrawler()
+
+# 🔥 Phase 2.3: DART 전자공시 크롤러 초기화
+dart_crawler = DartDisclosureCrawler()
 
 
 async def analyze_news_with_ai(title: str, content: str, symbols: list, url: str) -> dict:
