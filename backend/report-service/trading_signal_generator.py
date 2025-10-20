@@ -185,10 +185,10 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
         scores.append(0)
 
     # 2. MACD 신호
-    macd = indicators.get("macd") or {}
-    macd_value = macd.get("value") or 0
-    macd_signal = macd.get("signal") or 0
-    macd_histogram = macd.get("histogram") or 0
+    # MACD는 개별 키로 저장됨: macd, macd_signal, macd_histogram
+    macd_value = indicators.get("macd") or 0
+    macd_signal = indicators.get("macd_signal") or 0
+    macd_histogram = indicators.get("macd_histogram") or 0
 
     if macd_histogram > 0 and macd_value > macd_signal:
         signals.append("MACD 골든크로스 (매수 신호)")
@@ -201,23 +201,33 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
         scores.append(0)
 
     # 3. Bollinger Bands 신호
-    bollinger = indicators.get("bollinger_bands") or {}
-    bb_position = bollinger.get("position") or "middle"
+    # Bollinger Bands는 개별 키로 저장됨: bollinger_upper, bollinger_lower
+    current_price = indicators.get("current_price") or 0
+    bb_upper = indicators.get("bollinger_upper")
+    bb_lower = indicators.get("bollinger_lower")
 
-    if bb_position == "below_lower":
-        signals.append("볼린저 밴드 하단 이탈 (매수 신호)")
-        scores.append(50)
-    elif bb_position == "above_upper":
-        signals.append("볼린저 밴드 상단 이탈 (매도 신호)")
-        scores.append(-50)
-    elif bb_position == "near_lower":
-        signals.append("볼린저 밴드 하단 근접")
-        scores.append(30)
-    elif bb_position == "near_upper":
-        signals.append("볼린저 밴드 상단 근접")
-        scores.append(-30)
+    if bb_upper and bb_lower and current_price > 0:
+        # 하단 이탈: 가격이 하단 밴드보다 낮음
+        if current_price < bb_lower:
+            signals.append("볼린저 밴드 하단 이탈 (매수 신호)")
+            scores.append(50)
+        # 상단 이탈: 가격이 상단 밴드보다 높음
+        elif current_price > bb_upper:
+            signals.append("볼린저 밴드 상단 이탈 (매도 신호)")
+            scores.append(-50)
+        # 하단 근접: 가격이 하단 밴드의 102% 이내
+        elif current_price < bb_lower * 1.02:
+            signals.append("볼린저 밴드 하단 근접")
+            scores.append(30)
+        # 상단 근접: 가격이 상단 밴드의 98% 이상
+        elif current_price > bb_upper * 0.98:
+            signals.append("볼린저 밴드 상단 근접")
+            scores.append(-30)
+        else:
+            signals.append("볼린저 밴드 중간")
+            scores.append(0)
     else:
-        signals.append("볼린저 밴드 중간")
+        signals.append("볼린저 밴드 데이터 없음")
         scores.append(0)
 
     # 4. 이동평균선 신호
@@ -573,8 +583,8 @@ def calculate_exit_points(
     """손절가 및 목표가 설정"""
 
     # 손절가 계산 (기술적 지표 + 리스크 기반)
-    bollinger = technical_indicators.get("bollinger_bands") or {}
-    lower_band = bollinger.get("lower") or (current_price * 0.95)
+    # Bollinger Bands 하단 사용 (개별 키)
+    lower_band = technical_indicators.get("bollinger_lower") or (current_price * 0.95)
 
     # 단기 리스크에 따라 손절폭 조정
     short_term_risk = (risk_scores.get("short_term") or {}).get("score") or 50
