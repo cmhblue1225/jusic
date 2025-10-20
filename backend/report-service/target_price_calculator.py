@@ -48,7 +48,7 @@ def calculate_target_prices(
     technical_targets = calculate_technical_target(current_price, price_data)
 
     # 4. 애널리스트 목표가 (있는 경우)
-    analyst_target = analyst_opinion.get("avg_target_price", 0)
+    analyst_target = analyst_opinion.get("avg_target_price") or 0
 
     # 5. 시장 맥락 반영 조정 계수
     market_adjustment = calculate_market_adjustment(market_context)
@@ -250,7 +250,7 @@ def calculate_conservative_target(
         weights.append(0.20)
 
     # 애널리스트 목표가 (가중치 25%, 있는 경우)
-    if analyst_target > 0:
+    if analyst_target and analyst_target > 0:
         # 보수적이므로 애널리스트 목표가의 90%만 반영
         targets.append(analyst_target * 0.9)
         weights.append(0.25)
@@ -295,7 +295,7 @@ def calculate_neutral_target(
         weights.append(0.20)
 
     # 애널리스트 목표가 (가중치 25%, 있는 경우)
-    if analyst_target > 0:
+    if analyst_target and analyst_target > 0:
         targets.append(analyst_target)
         weights.append(0.25)
 
@@ -338,7 +338,7 @@ def calculate_aggressive_target(
         weights.append(0.25)
 
     # 애널리스트 목표가 (가중치 20%, 있는 경우)
-    if analyst_target > 0:
+    if analyst_target and analyst_target > 0:
         # 공격적이므로 애널리스트 목표가의 110% 반영
         targets.append(analyst_target * 1.1)
         weights.append(0.20)
