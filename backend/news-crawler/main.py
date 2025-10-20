@@ -1,6 +1,8 @@
 """
 뉴스 크롤러 메인 서비스
-네이버 뉴스 검색 API를 통해 종목별 뉴스를 수집하고 Supabase에 저장
+네이버 뉴스 검색 API + Google News RSS를 통해 종목별 뉴스를 수집하고 Supabase에 저장
+
+🔥 Phase 2.1: Google News RSS 추가
 """
 import os
 from fastapi import FastAPI
@@ -12,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from nlp.ner import StockNER
 from naver_api import NaverNewsAPI
+from google_news_rss import GoogleNewsRSS  # 🔥 Phase 2.1
 
 load_dotenv()
 
@@ -34,6 +37,9 @@ stock_ner = StockNER(supabase)
 
 # 네이버 API 클라이언트 초기화
 naver_api = NaverNewsAPI()
+
+# 🔥 Phase 2.1: Google News RSS 클라이언트 초기화
+google_news = GoogleNewsRSS()
 
 
 async def analyze_news_with_ai(title: str, content: str, symbols: list, url: str) -> dict:
@@ -198,8 +204,8 @@ async def get_user_tracked_stocks() -> list:
 
 
 async def crawl_news():
-    """네이버 API를 사용한 뉴스 크롤링"""
-    print(f"[{datetime.now()}] 네이버 API 뉴스 크롤링 시작...")
+    """🔥 Phase 2.1: 네이버 API + Google News RSS 뉴스 크롤링"""
+    print(f"[{datetime.now()}] 멀티 소스 뉴스 크롤링 시작...")
 
     # 1. 사용자 추적 종목 조회 (보유 + 관심)
     tracked_stocks = await get_user_tracked_stocks()
@@ -207,21 +213,51 @@ async def crawl_news():
 
     print(f"🎯 사용자 추적 종목: {len(stock_names)}개")
 
-    # 2. 네이버 API로 종목별 뉴스 검색 (종목당 10개로 증가)
+    # 2. 네이버 API로 종목별 뉴스 검색 (종목당 10개)
+    naver_news = []
     try:
-        all_news = await naver_api.search_multiple_stocks(
+        naver_news = await naver_api.search_multiple_stocks(
             stock_names=stock_names,
-            results_per_stock=10  # 5 → 10개로 증가 (최신 뉴스 확률 증가)
+            results_per_stock=10
         )
 
-        print(f"📰 총 {len(all_news)}개 뉴스 수집 (중복 제거 후)")
+        print(f"📰 [Naver] {len(naver_news)}개 뉴스 수집 (중복 제거 후)")
 
         # API 사용량 로깅
         api_calls = len(stock_names) * 10
-        print(f"📊 API 호출 수: {api_calls}개 (일일 한도: 25,000)")
+        print(f"📊 [Naver] API 호출 수: {api_calls}개 (일일 한도: 25,000)")
 
     except Exception as e:
-        print(f"❌ 네이버 API 호출 오류: {str(e)}")
+        print(f"⚠️ [Naver] API 호출 오류: {str(e)}")
+
+    # 🔥 Phase 2.1: Google News RSS로 추가 뉴스 검색 (종목당 5개)
+    google_news_list = []
+    try:
+        google_news_list = await google_news.search_multiple_stocks(
+            stock_names=stock_names,
+            results_per_stock=5
+        )
+
+        print(f"📰 [Google News] {len(google_news_list)}개 뉴스 수집 (중복 제거 후)")
+
+    except Exception as e:
+        print(f"⚠️ [Google News] RSS 크롤링 오류: {str(e)}")
+
+    # 3. 두 소스 병합 및 URL 기준 중복 제거
+    all_news = naver_news + google_news_list
+    seen_urls = set()
+    unique_news = []
+
+    for news in all_news:
+        if news["url"] not in seen_urls:
+            seen_urls.add(news["url"])
+            unique_news.append(news)
+
+    all_news = unique_news
+    print(f"📊 [통합] 총 {len(all_news)}개 뉴스 (Naver + Google News, 중복 제거 후)")
+
+    if not all_news:
+        print("⚠️ 수집된 뉴스가 없습니다.")
         return
 
     # 3. 각 뉴스 처리
@@ -300,7 +336,7 @@ async def crawl_news():
             print(f"❌ 뉴스 처리 오류: {str(e)}")
             continue
 
-    print(f"\n[{datetime.now()}] 네이버 API 뉴스 크롤링 완료")
+    print(f"\n[{datetime.now()}] 멀티 소스 뉴스 크롤링 완료 (Naver + Google News)")
     print(f"📈 통계: 신규 {new_count}개, 중복 {duplicate_count}개, 3일 이전 {old_news_count}개\n")
 
 
