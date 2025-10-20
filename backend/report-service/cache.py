@@ -9,11 +9,24 @@ import redis
 from datetime import datetime, time, timedelta
 from typing import Optional, Dict, Any
 
-# Redis 클라이언트 초기화
-redis_client = redis.from_url(
-    os.getenv("REDIS_URL", "redis://localhost:6379"),
-    decode_responses=True
-)
+# Redis 클라이언트 (지연 초기화)
+redis_client = None
+
+def get_redis_client():
+    """Redis 클라이언트 지연 초기화"""
+    global redis_client
+    if redis_client is None:
+        try:
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            redis_client = redis.from_url(redis_url, decode_responses=True)
+            # 연결 테스트
+            redis_client.ping()
+            print(f"✅ Redis 연결 성공: {redis_url}")
+        except Exception as e:
+            print(f"⚠️ Redis 연결 실패: {str(e)}")
+            print("   → 캐싱 기능 비활성화 (레포트는 정상 작동)")
+            redis_client = None
+    return redis_client
 
 # 한국 주식 시장 시간 (KST 기준)
 MARKET_OPEN_TIME = time(9, 0)    # 09:00
@@ -87,8 +100,12 @@ def get_cached_report(symbol: str, report_date: str) -> Optional[Dict[str, Any]]
         Optional[Dict]: 캐시된 레포트 데이터 또는 None
     """
     try:
+        client = get_redis_client()
+        if client is None:
+            return None
+
         cache_key = get_cache_key(symbol, report_date)
-        cached_data = redis_client.get(cache_key)
+        cached_data = client.get(cache_key)
 
         if cached_data:
             print(f"✅ 캐시 HIT: {cache_key}")
@@ -115,6 +132,10 @@ def set_cached_report(symbol: str, report_date: str, report_data: Dict[str, Any]
         bool: 캐싱 성공 여부
     """
     try:
+        client = get_redis_client()
+        if client is None:
+            return False
+
         cache_key = get_cache_key(symbol, report_date)
         ttl = calculate_ttl()
 
@@ -122,7 +143,7 @@ def set_cached_report(symbol: str, report_date: str, report_data: Dict[str, Any]
         serialized_data = json.dumps(report_data, ensure_ascii=False, default=str)
 
         # Redis에 저장
-        redis_client.setex(cache_key, ttl, serialized_data)
+        client.setex(cache_key, ttl, serialized_data)
 
         print(f"✅ 캐시 저장 성공: {cache_key} (TTL: {ttl // 60}분)")
         return True
@@ -144,8 +165,12 @@ def delete_cached_report(symbol: str, report_date: str) -> bool:
         bool: 삭제 성공 여부
     """
     try:
+        client = get_redis_client()
+        if client is None:
+            return False
+
         cache_key = get_cache_key(symbol, report_date)
-        result = redis_client.delete(cache_key)
+        result = client.delete(cache_key)
 
         if result > 0:
             print(f"✅ 캐시 삭제 성공: {cache_key}")
