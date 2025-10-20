@@ -106,8 +106,8 @@ def calculate_per_based_target(
     sector_relative: Dict[str, Any]
 ) -> Dict[str, float]:
     """PER 기반 목표가 계산"""
-    per = financial_data.get("per", 0)
-    eps = financial_data.get("eps", 0)
+    per = financial_data.get("per") or 0
+    eps = financial_data.get("eps") or 0
 
     if per <= 0 or eps <= 0:
         return {"conservative": 0, "neutral": 0, "aggressive": 0}
@@ -137,8 +137,8 @@ def calculate_pbr_based_target(
     financial_data: Dict[str, Any]
 ) -> Dict[str, float]:
     """PBR 기반 목표가 계산"""
-    pbr = financial_data.get("pbr", 0)
-    bps = financial_data.get("bps", 0)
+    pbr = financial_data.get("pbr") or 0
+    bps = financial_data.get("bps") or 0
 
     if pbr <= 0 or bps <= 0:
         return {"conservative": 0, "neutral": 0, "aggressive": 0}
@@ -164,8 +164,8 @@ def calculate_technical_target(
     price_data: Dict[str, Any]
 ) -> Dict[str, float]:
     """기술적 분석 기반 목표가 (52주 고가/저가 활용)"""
-    week52_high = price_data.get("week52_high", 0)
-    week52_low = price_data.get("week52_low", 0)
+    week52_high = price_data.get("week52_high") or 0
+    week52_low = price_data.get("week52_low") or 0
 
     if week52_high <= 0 or week52_low <= 0:
         return {"conservative": 0, "neutral": 0, "aggressive": 0}

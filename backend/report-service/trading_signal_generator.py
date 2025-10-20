@@ -118,9 +118,9 @@ def analyze_price_position(
     analyst_opinion: Optional[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """현재가의 목표가 대비 위치 분석"""
-    conservative = target_prices.get("conservative", 0)
-    neutral = target_prices.get("neutral", 0)
-    aggressive = target_prices.get("aggressive", 0)
+    conservative = target_prices.get("conservative") or 0
+    neutral = target_prices.get("neutral") or 0
+    aggressive = target_prices.get("aggressive") or 0
 
     # 상승 여력 계산
     upside_conservative = ((conservative / current_price) - 1) * 100 if conservative > 0 else 0
@@ -170,7 +170,7 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
     scores = []
 
     # 1. RSI 신호
-    rsi = indicators.get("rsi", 50)
+    rsi = indicators.get("rsi") or 50
     if rsi < 30:
         signals.append("RSI 과매도 (매수 신호)")
         scores.append(70)
@@ -185,10 +185,10 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
         scores.append(0)
 
     # 2. MACD 신호
-    macd = indicators.get("macd", {})
-    macd_value = macd.get("value", 0)
-    macd_signal = macd.get("signal", 0)
-    macd_histogram = macd.get("histogram", 0)
+    macd = indicators.get("macd") or {}
+    macd_value = macd.get("value") or 0
+    macd_signal = macd.get("signal") or 0
+    macd_histogram = macd.get("histogram") or 0
 
     if macd_histogram > 0 and macd_value > macd_signal:
         signals.append("MACD 골든크로스 (매수 신호)")
@@ -201,8 +201,8 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
         scores.append(0)
 
     # 3. Bollinger Bands 신호
-    bollinger = indicators.get("bollinger_bands", {})
-    bb_position = bollinger.get("position", "middle")
+    bollinger = indicators.get("bollinger_bands") or {}
+    bb_position = bollinger.get("position") or "middle"
 
     if bb_position == "below_lower":
         signals.append("볼린저 밴드 하단 이탈 (매수 신호)")
@@ -221,7 +221,7 @@ def analyze_technical_signals(indicators: Dict[str, Any]) -> Dict[str, Any]:
         scores.append(0)
 
     # 4. 이동평균선 신호
-    ma_trend = indicators.get("moving_average_trend", "neutral")
+    ma_trend = indicators.get("moving_average_trend") or "neutral"
     if ma_trend == "golden_cross":
         signals.append("이동평균 골든크로스")
         scores.append(50)
@@ -259,9 +259,9 @@ def assess_risk_level(
 ) -> Dict[str, Any]:
     """리스크 수준 종합 평가"""
     # Phase 3.2의 리스크 점수 활용
-    short_term_risk = risk_scores.get("short_term", {}).get("score", 50)
-    mid_term_risk = risk_scores.get("mid_term", {}).get("score", 50)
-    long_term_risk = risk_scores.get("long_term", {}).get("score", 50)
+    short_term_risk = (risk_scores.get("short_term") or {}).get("score") or 50
+    mid_term_risk = (risk_scores.get("mid_term") or {}).get("score") or 50
+    long_term_risk = (risk_scores.get("long_term") or {}).get("score") or 50
 
     # 가중 평균 (단기 40%, 중기 35%, 장기 25%)
     overall_risk = (
@@ -271,7 +271,7 @@ def assess_risk_level(
     )
 
     # 시장 변동성 반영
-    volatility_level = market_context.get("volatility_level", "medium")
+    volatility_level = market_context.get("volatility_level") or "medium"
     if volatility_level == "high":
         overall_risk += 10  # 변동성 높으면 리스크 증가
     elif volatility_level == "low":
@@ -310,10 +310,10 @@ def assess_risk_level(
 
 def assess_market_favorability(market_context: Dict[str, Any]) -> Dict[str, Any]:
     """시장 환경의 호의성 평가"""
-    market_trend = market_context.get("market_trend", "neutral")
-    market_strength = market_context.get("market_strength", 50)
-    volatility_level = market_context.get("volatility_level", "medium")
-    market_breadth_pct = market_context.get("market_breadth_pct", 50)
+    market_trend = market_context.get("market_trend") or "neutral"
+    market_strength = market_context.get("market_strength") or 50
+    volatility_level = market_context.get("volatility_level") or "medium"
+    market_breadth_pct = market_context.get("market_breadth_pct") or 50
 
     # 호의성 점수 계산 (0-100)
     favorability_score = 50  # 기본값
@@ -360,8 +360,8 @@ def assess_market_favorability(market_context: Dict[str, Any]) -> Dict[str, Any]
 def integrate_ai_recommendations(ai_recommendations: Dict[str, Any]) -> Dict[str, Any]:
     """AI 앙상블 추천 통합"""
     # Phase 3.3의 AI 앙상블 결과 활용
-    consensus = ai_recommendations.get("consensus", "hold")
-    confidence = ai_recommendations.get("confidence", 50)
+    consensus = ai_recommendations.get("consensus") or "hold"
+    confidence = ai_recommendations.get("confidence") or 50
 
     # 컨센서스를 신호로 변환
     if consensus in ["strong_buy", "buy"]:
@@ -508,7 +508,7 @@ def determine_entry_strategy(
     strength = final_signal["strength"]
     confidence = final_signal["confidence"]
 
-    current_price = technical_indicators.get("current_price", 0)
+    current_price = technical_indicators.get("current_price") or 0
 
     # 진입 타이밍 결정
     if action == "buy":
@@ -572,11 +572,11 @@ def calculate_exit_points(
     """손절가 및 목표가 설정"""
 
     # 손절가 계산 (기술적 지표 + 리스크 기반)
-    bollinger = technical_indicators.get("bollinger_bands", {})
-    lower_band = bollinger.get("lower", current_price * 0.95)
+    bollinger = technical_indicators.get("bollinger_bands") or {}
+    lower_band = bollinger.get("lower") or (current_price * 0.95)
 
     # 단기 리스크에 따라 손절폭 조정
-    short_term_risk = risk_scores.get("short_term", {}).get("score", 50)
+    short_term_risk = (risk_scores.get("short_term") or {}).get("score") or 50
 
     if short_term_risk >= 70:
         # 리스크 높으면 손절폭 작게 (5%)
