@@ -2,9 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useWatchlistStore } from '../stores/watchlistStore';
-import { useRealtimePrice } from '../hooks/useRealtimePrice';
-import { useInitialStockPrices } from '../hooks/useInitialStockPrices';
-import { usePriceStore, formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
+import { useRealtimePrices } from '../hooks/useRealtimePrices';
+import { formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
 import StockAutocomplete from '../components/StockAutocomplete';
 
 export default function Watchlist() {
@@ -12,20 +11,9 @@ export default function Watchlist() {
   const { items, loading, error, fetchWatchlist, addToWatchlist, removeFromWatchlist, clearError } = useWatchlistStore();
   const navigate = useNavigate();
 
-  // 실시간 시세 통합
-  const { getPrice } = usePriceStore();
+  // 실시간 시세 자동 갱신 (1초마다)
   const watchlistSymbols = useMemo(() => items.map((item) => item.symbol), [items]);
-  const { isConnected } = useRealtimePrice({
-    autoConnect: true,
-    autoSubscribe: true,
-    symbols: watchlistSymbols,
-  });
-
-  // 초기 시세 조회 (거래 시간 외 또는 WebSocket 연결 전)
-  useInitialStockPrices({
-    symbols: watchlistSymbols,
-    enabled: watchlistSymbols.length > 0,
-  });
+  const { prices } = useRealtimePrices(watchlistSymbols, true);
 
   // 추가 폼 상태
   const [isAdding, setIsAdding] = useState(false);
@@ -114,12 +102,10 @@ export default function Watchlist() {
         <div className="card">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">📊 관심 종목 요약</h2>
-            {isConnected && (
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                실시간 연동 중
-              </span>
-            )}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              실시간 연동 중 (1초)
+            </span>
           </div>
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="text-lg text-gray-600">관심 종목 수</div>
@@ -195,7 +181,7 @@ export default function Watchlist() {
           ) : (
             <div className="space-y-4">
               {items.map((item) => {
-                const priceData = getPrice(item.symbol);
+                const priceData = prices.get(item.symbol);
 
                 return (
                   <div key={item.id} className="bg-gray-50 p-4 rounded-lg hover:shadow-md transition-shadow">
@@ -238,13 +224,11 @@ export default function Watchlist() {
                                 {priceData.volume.toLocaleString()}
                               </div>
                             </div>
-                            {isConnected && (
-                              <div className="ml-auto">
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                  실시간
-                                </span>
-                              </div>
-                            )}
+                            <div className="ml-auto">
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                실시간 (1초)
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <div className="mt-2 text-sm text-gray-400 italic">

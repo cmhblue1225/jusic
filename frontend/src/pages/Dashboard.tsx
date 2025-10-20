@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
-import { useRealtimePrice } from '../hooks/useRealtimePrice';
-import { useInitialStockPrices } from '../hooks/useInitialStockPrices';
-import { usePriceStore, formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
+import { useRealtimePrices } from '../hooks/useRealtimePrices';
+import { formatPrice, formatChangeRate, getChangeRateColor } from '../stores/priceStore';
 
 interface StockSymbol {
   symbol: string;
@@ -20,18 +19,8 @@ export default function Dashboard() {
   const [stockNames, setStockNames] = useState<Map<string, string>>(new Map());
   const [showAllStocks, setShowAllStocks] = useState(false);
 
-  const { getPrice } = usePriceStore();
-  const { isConnected, subscribedSymbols } = useRealtimePrice({
-    autoConnect: true,
-    autoSubscribe: true,
-    symbols: userSymbols,
-  });
-
-  // 초기 시세 조회 (거래 시간 외 또는 WebSocket 연결 전)
-  useInitialStockPrices({
-    symbols: userSymbols,
-    enabled: userSymbols.length > 0,
-  });
+  // 실시간 시세 자동 갱신 (1초마다)
+  const { prices } = useRealtimePrices(userSymbols, true);
 
   // 사용자의 포트폴리오 + 관심종목 가져오기
   useEffect(() => {
@@ -93,15 +82,15 @@ export default function Dashboard() {
             <p className="text-lg text-gray-600">
               환영합니다, {user?.user_metadata?.name || user?.email}님!
             </p>
-            {/* WebSocket 연결 상태 */}
+            {/* 실시간 시세 상태 */}
             <div className="flex items-center gap-2 mt-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
               <span className="text-sm text-gray-600">
-                {isConnected ? '실시간 시세 연결됨' : '실시간 시세 연결 끊김'}
+                실시간 시세 연결됨 (1초 자동 갱신)
               </span>
-              {subscribedSymbols.length > 0 && (
+              {userSymbols.length > 0 && (
                 <span className="text-xs text-gray-500">
-                  ({subscribedSymbols.length}개 종목 구독 중)
+                  ({userSymbols.length}개 종목)
                 </span>
               )}
             </div>
@@ -135,9 +124,9 @@ export default function Dashboard() {
 
             <div className="bg-purple-50 p-6 rounded-lg">
               <div className="text-3xl font-bold text-purple-600">
-                {isConnected ? '✅' : '⚠️'}
+                ✅
               </div>
-              <div className="text-lg font-medium mt-2">실시간 시세</div>
+              <div className="text-lg font-medium mt-2">실시간 시세 (1초)</div>
             </div>
           </div>
 
@@ -146,15 +135,13 @@ export default function Dashboard() {
             <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                 📊 실시간 시세
-                {isConnected && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                    LIVE
-                  </span>
-                )}
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  LIVE (1초)
+                </span>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {(showAllStocks ? userSymbols : userSymbols.slice(0, 6)).map((symbol) => {
-                  const priceData = getPrice(symbol);
+                  const priceData = prices.get(symbol);
                   const stockName = stockNames.get(symbol) || symbol;
 
                   return (
