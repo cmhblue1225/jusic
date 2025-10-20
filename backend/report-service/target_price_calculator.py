@@ -352,3 +352,91 @@ def calculate_aggressive_target(
     target = (weighted_sum / total_weight) * market_adjustment
 
     return max(target, current_price * 1.05)
+
+
+def analyze_target_price_gap(
+    current_price: float,
+    conservative: float,
+    neutral: float,
+    aggressive: float
+) -> Optional[Dict[str, Any]]:
+    """
+    목표가 대비 현재가 위치 분석 및 경고 생성
+
+    Args:
+        current_price: 현재 주가
+        conservative: 보수적 목표가
+        neutral: 중립적 목표가
+        aggressive: 공격적 목표가
+
+    Returns:
+        Dict: 목표가 갭 분석 정보
+            - gap_percent: 평균 목표가 대비 차이 (%)
+            - position: 현재가 위치 (below_conservative, conservative_zone, neutral_zone, aggressive_zone, above_aggressive)
+            - position_percent: 목표가 범위 내 위치 (0~100%)
+            - warning: 경고 메시지 정보
+    """
+    if not conservative or not neutral or not aggressive or conservative <= 0 or neutral <= 0 or aggressive <= 0:
+        return None
+
+    # 현재가가 각 목표가 대비 어느 위치인지 계산
+    avg_target = (conservative + neutral + aggressive) / 3
+    gap_pct = ((current_price - avg_target) / avg_target) * 100
+
+    # 목표가 범위 내 위치 (0~100%)
+    if current_price < conservative:
+        position = "below_conservative"
+        position_pct = 0
+    elif current_price > aggressive:
+        position = "above_aggressive"
+        position_pct = 100
+    else:
+        # 보수~공격 범위 내 위치 계산
+        position_pct = ((current_price - conservative) / (aggressive - conservative)) * 100
+        if position_pct < 33:
+            position = "conservative_zone"
+        elif position_pct < 66:
+            position = "neutral_zone"
+        else:
+            position = "aggressive_zone"
+
+    # 경고 메시지 생성 (강한 경고 모드)
+    if gap_pct >= 5:
+        warning = {
+            "level": "danger",
+            "message": f"⚠️ 현재가가 목표가를 {gap_pct:+.1f}% 초과했습니다. 차익 실현을 적극 검토하세요.",
+            "action": "매도 또는 익절 고려",
+            "color": "red"
+        }
+    elif gap_pct >= 0:
+        warning = {
+            "level": "warning",
+            "message": f"⚠️ 현재가가 목표가 상단에 근접({gap_pct:+.1f}%)했습니다. 추가 상승 여력이 제한적일 수 있습니다.",
+            "action": "분할 매도 또는 관망",
+            "color": "orange"
+        }
+    elif gap_pct >= -10:
+        warning = {
+            "level": "info",
+            "message": f"현재가가 목표가 대비 {abs(gap_pct):.1f}% 낮습니다. 적정 가격 범위입니다.",
+            "action": "매수 또는 보유",
+            "color": "blue"
+        }
+    else:
+        warning = {
+            "level": "opportunity",
+            "message": f"💡 현재가가 목표가 대비 {abs(gap_pct):.1f}% 저평가되었습니다. 매수 기회로 고려 가능합니다.",
+            "action": "적극 매수 검토",
+            "color": "green"
+        }
+
+    print(f"🎯 목표가 분석: 현재가 {current_price:,}원 vs 평균 목표가 {avg_target:,.0f}원 (갭: {gap_pct:+.1f}%)")
+    print(f"   - 위치: {position}, 경고: {warning['level']}")
+
+    return {
+        "gap_percent": round(gap_pct, 1),
+        "position": position,
+        "position_percent": round(position_pct, 1),
+        "warning": warning,
+        "avg_target_price": round(avg_target, 0)
+    }

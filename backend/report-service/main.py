@@ -62,7 +62,7 @@ try:
     print("  ✅ kis_data_advanced 모듈 (호가/체결)")
     from sector_analysis import compare_with_sector, detect_sector_rotation
     # 🔥 Phase 5.1: 목표가 산출 모듈
-    from target_price_calculator import calculate_target_prices
+    from target_price_calculator import calculate_target_prices, analyze_target_price_gap
     print("  ✅ target_price_calculator 모듈 (목표가 산출)")
     # 🔥 Phase 5.2: 매매 타이밍 신호 생성 모듈
     from trading_signal_generator import generate_trading_signals
@@ -497,6 +497,14 @@ async def generate_report(
             market_context=market_context
         )
 
+        # 🔥 목표가 vs 현재가 갭 분석
+        target_price_gap = analyze_target_price_gap(
+            current_price=indicators["current_price"],
+            conservative=target_prices.get("conservative"),
+            neutral=target_prices.get("neutral"),
+            aggressive=target_prices.get("aggressive")
+        )
+
         # 🔥 Phase 5.2: 매매 타이밍 신호 생성
         print(f"📊 매매 신호 생성... (버전: v2.1 - risk_scores 변환 포함)")
 
@@ -519,7 +527,8 @@ async def generate_report(
             risk_scores=risk_scores_formatted,
             market_context=market_context,
             ai_recommendations=ai_result,
-            analyst_opinion=analyst_opinion
+            analyst_opinion=analyst_opinion,
+            financial_data=financial_data  # 🔥 재무 데이터 추가
         )
 
         # 5. 레포트 데이터 구성
@@ -607,6 +616,31 @@ async def generate_report(
             "fundamental_analysis": ai_result.get("fundamental_analysis", ""),
             "market_sentiment": ai_result.get("market_sentiment", ""),
 
+            # 🔥 타임프레임별 투자 전략 (단기/중기/장기)
+            "investment_strategies": {
+                "short_term": {
+                    "timeframe": "단기 (1~3개월)",
+                    "outlook": ai_result.get("timeframe_analysis", {}).get("short_term", {}).get("outlook", "neutral"),
+                    "key_factors": ai_result.get("timeframe_analysis", {}).get("short_term", {}).get("key_factors", ""),
+                    "entry_price": ai_result.get("timeframe_analysis", {}).get("short_term", {}).get("entry_price"),
+                    "target_price": ai_result.get("timeframe_analysis", {}).get("short_term", {}).get("target_price"),
+                    "stop_loss": ai_result.get("timeframe_analysis", {}).get("short_term", {}).get("stop_loss"),
+                    "strategy": ai_result.get("investment_strategy", "")  # 기존 단기 전략
+                },
+                "medium_term": {
+                    "timeframe": "중기 (3~12개월)",
+                    "outlook": ai_result.get("timeframe_analysis", {}).get("medium_term", {}).get("outlook", "neutral"),
+                    "key_factors": ai_result.get("timeframe_analysis", {}).get("medium_term", {}).get("key_factors", ""),
+                    "target_price": ai_result.get("timeframe_analysis", {}).get("medium_term", {}).get("target_price")
+                },
+                "long_term": {
+                    "timeframe": "장기 (12개월+)",
+                    "outlook": ai_result.get("timeframe_analysis", {}).get("long_term", {}).get("outlook", "neutral"),
+                    "key_factors": ai_result.get("timeframe_analysis", {}).get("long_term", {}).get("key_factors", ""),
+                    "target_price": ai_result.get("timeframe_analysis", {}).get("long_term", {}).get("target_price")
+                }
+            },
+
             # 관련 뉴스
             "related_news_count": len(news_data),
 
@@ -662,7 +696,9 @@ async def generate_report(
                 "current_price": target_prices.get("current_price"),
                 "upside_potential": target_prices.get("upside_potential", {}),
                 "methods": target_prices.get("methods", {}),
-                "market_adjustment_factor": target_prices.get("market_adjustment_factor", 1.0)
+                "market_adjustment_factor": target_prices.get("market_adjustment_factor", 1.0),
+                # 🔥 목표가 vs 현재가 갭 분석
+                "gap_analysis": target_price_gap
             },
             # 🔥 Phase 5.2: 매매 타이밍 신호
             "trading_signals": {
@@ -678,7 +714,9 @@ async def generate_report(
                 "risks": trading_signals.get("risks", []),
                 "favorable_factors": trading_signals.get("favorable_factors", []),
                 "unfavorable_factors": trading_signals.get("unfavorable_factors", []),
-                "analysis_breakdown": trading_signals.get("analysis_breakdown", {})
+                "analysis_breakdown": trading_signals.get("analysis_breakdown", {}),
+                # 🔥 종합 위험도 (기술적 + 재무 + AI)
+                "comprehensive_risk": trading_signals.get("comprehensive_risk", {})
             },
 
             # 메타데이터

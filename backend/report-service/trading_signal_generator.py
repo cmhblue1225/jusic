@@ -13,7 +13,8 @@ def generate_trading_signals(
     risk_scores: Dict[str, Any],
     market_context: Dict[str, Any],
     ai_recommendations: Dict[str, Any],
-    analyst_opinion: Optional[Dict[str, Any]] = None
+    analyst_opinion: Optional[Dict[str, Any]] = None,
+    financial_data: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     매매 타이밍 신호 생성
@@ -26,6 +27,7 @@ def generate_trading_signals(
         market_context: 시장 전체 맥락
         ai_recommendations: AI 앙상블 추천
         analyst_opinion: 애널리스트 의견
+        financial_data: 재무 데이터 (PER, PBR, EPS 등)
 
     Returns:
         Dict: 매매 신호
@@ -37,6 +39,17 @@ def generate_trading_signals(
             - take_profit: 목표 수익 가격 (단계별)
             - reasoning: 신호 근거
     """
+    # 🔥 0. 종합 위험도 산출 (기술적 + 재무 + AI)
+    financial_data = financial_data or {}
+    ai_risk_score = ai_recommendations.get("risk_score", 50)
+
+    comprehensive_risk = calculate_comprehensive_risk_score(
+        technical_indicators=technical_indicators,
+        financial_data=financial_data,
+        ai_risk_score=ai_risk_score,
+        market_context=market_context
+    )
+
     # 1. 가격 포지션 분석
     price_position = analyze_price_position(current_price, target_prices, analyst_opinion)
 
@@ -97,6 +110,9 @@ def generate_trading_signals(
         "risks": risk_assessment["key_risks"],
         "favorable_factors": final_signal["favorable_factors"],
         "unfavorable_factors": final_signal["unfavorable_factors"],
+
+        # 🔥 종합 위험도 (기술적 + 재무 + AI)
+        "comprehensive_risk": comprehensive_risk,
 
         # 세부 분석 결과
         "analysis_breakdown": {
@@ -619,3 +635,135 @@ def calculate_exit_points(
     }
 
     return stop_loss, take_profit_levels
+
+
+def calculate_comprehensive_risk_score(
+    technical_indicators: Dict[str, Any],
+    financial_data: Dict[str, Any],
+    ai_risk_score: float,
+    market_context: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    기술적 지표 + 재무 + AI를 종합한 위험도 산출
+
+    중립적 기준:
+    - RSI 70 이상 = 과매수 위험
+    - 거래량 5배 이상 = 투기 위험
+    - EPS 음수 = 재무 위험
+
+    Returns:
+        Dict: 위험도 정보
+            - risk_score: 0~100 점수
+            - risk_level: "낮음", "보통", "높음"
+            - risk_label: "low", "moderate", "high"
+            - risk_factors: 위험 요인 리스트
+    """
+    risk_score = 0
+    risk_factors = []
+
+    # 1. RSI 기반 위험도 (중립적 기준: RSI 70+)
+    rsi = technical_indicators.get("rsi") or 50
+    if rsi >= 80:
+        risk_score += 35
+        risk_factors.append(f"RSI 과매수 ({rsi:.1f}, 80+ 초과열)")
+    elif rsi >= 70:
+        risk_score += 25
+        risk_factors.append(f"RSI 과열 ({rsi:.1f}, 70+ 과매수)")
+    elif rsi <= 30:
+        risk_score += 15
+        risk_factors.append(f"RSI 과매도 ({rsi:.1f}, 급락 위험)")
+
+    # 2. 거래량 급증 위험 (중립적 기준: 5배+)
+    volume_ratio = technical_indicators.get("volume_ratio") or 1
+    if volume_ratio >= 10:
+        risk_score += 30
+        risk_factors.append(f"거래량 급증 ({volume_ratio:.1f}배, 투기 과열)")
+    elif volume_ratio >= 5:
+        risk_score += 20
+        risk_factors.append(f"거래량 급증 ({volume_ratio:.1f}배)")
+    elif volume_ratio >= 3:
+        risk_score += 10
+        risk_factors.append(f"거래량 증가 ({volume_ratio:.1f}배)")
+
+    # 3. 재무 건전성 위험
+    eps = financial_data.get("eps")
+    per = financial_data.get("per")
+    pbr = financial_data.get("pbr")
+    debt_ratio = financial_data.get("debt_ratio")
+    operating_margin = financial_data.get("operating_margin")
+
+    if eps is not None and eps < 0:
+        risk_score += 20
+        risk_factors.append(f"EPS 적자 ({eps}원)")
+
+    if per is None or per < 0:
+        risk_score += 10
+        risk_factors.append("PER 정보 부족 (실적 불투명)")
+    elif per > 50:
+        risk_score += 15
+        risk_factors.append(f"PER 고평가 ({per:.1f}, 50+ 초과)")
+
+    if pbr and pbr > 5:
+        risk_score += 10
+        risk_factors.append(f"PBR 고평가 ({pbr:.1f}, 5+ 초과)")
+
+    if debt_ratio and debt_ratio > 200:
+        risk_score += 15
+        risk_factors.append(f"부채비율 높음 ({debt_ratio:.1f}%, 200%+)")
+
+    if operating_margin is not None and operating_margin < 0:
+        risk_score += 10
+        risk_factors.append(f"영업이익률 적자 ({operating_margin:.1f}%)")
+
+    # 4. 변동성 위험
+    volatility = technical_indicators.get("volatility")
+    atr = technical_indicators.get("atr")
+    if volatility and volatility > 0:
+        # 변동성이 현재가의 5% 이상이면 위험
+        current_price = technical_indicators.get("current_price") or 1
+        volatility_pct = (volatility / current_price) * 100
+        if volatility_pct > 10:
+            risk_score += 15
+            risk_factors.append(f"높은 변동성 ({volatility_pct:.1f}%)")
+        elif volatility_pct > 5:
+            risk_score += 10
+            risk_factors.append(f"변동성 증가 ({volatility_pct:.1f}%)")
+
+    # 5. AI 위험도 반영 (30% 가중치)
+    risk_score += ai_risk_score * 0.3
+
+    # 6. 시장 리스크
+    volatility_level = market_context.get("volatility_level", "medium")
+    market_trend = market_context.get("market_trend", "neutral")
+
+    if volatility_level == "high":
+        risk_score += 10
+        risk_factors.append("시장 변동성 높음")
+
+    if market_trend == "bearish":
+        risk_score += 10
+        risk_factors.append("시장 하락 추세")
+
+    # 총점 0~100 정규화
+    risk_score = min(100, max(0, risk_score))
+
+    # 위험도 등급 (중립적 기준)
+    if risk_score >= 70:
+        risk_level = "높음"
+        risk_label = "high"
+    elif risk_score >= 40:
+        risk_level = "보통"
+        risk_label = "moderate"
+    else:
+        risk_level = "낮음"
+        risk_label = "low"
+
+    print(f"🎯 종합 위험도 산출: {risk_score:.1f}점 ({risk_level})")
+    print(f"   - 주요 위험 요인 ({len(risk_factors)}개): {', '.join(risk_factors[:3]) if risk_factors else '없음'}")
+
+    return {
+        "risk_score": round(risk_score, 1),
+        "risk_level": risk_level,
+        "risk_label": risk_label,
+        "risk_factors": risk_factors
+    }
