@@ -64,6 +64,9 @@ try:
     # 🔥 Phase 5.1: 목표가 산출 모듈
     from target_price_calculator import calculate_target_prices
     print("  ✅ target_price_calculator 모듈 (목표가 산출)")
+    # 🔥 Phase 5.2: 매매 타이밍 신호 생성 모듈
+    from trading_signal_generator import generate_trading_signals
+    print("  ✅ trading_signal_generator 모듈 (매매 신호)")
     print("  ✅ sector_analysis 모듈 (섹터 비교)")
     from rate_limiter import rate_limited_kis_request
     print("  ✅ rate_limiter 모듈 (API Rate Limit)")
@@ -494,6 +497,18 @@ async def generate_report(
             market_context=market_context
         )
 
+        # 🔥 Phase 5.2: 매매 타이밍 신호 생성
+        print(f"📊 매매 신호 생성...")
+        trading_signals = generate_trading_signals(
+            current_price=indicators["current_price"],
+            target_prices=target_prices,
+            technical_indicators=indicators,
+            risk_scores=ai_result.get("risk_scores", {}),
+            market_context=market_context,
+            ai_recommendations=ai_result,
+            analyst_opinion=analyst_opinion
+        )
+
         # 5. 레포트 데이터 구성
         report = {
             # 기본 정보
@@ -635,6 +650,22 @@ async def generate_report(
                 "upside_potential": target_prices.get("upside_potential", {}),
                 "methods": target_prices.get("methods", {}),
                 "market_adjustment_factor": target_prices.get("market_adjustment_factor", 1.0)
+            },
+            # 🔥 Phase 5.2: 매매 타이밍 신호
+            "trading_signals": {
+                "signal": trading_signals.get("signal"),  # buy/sell/hold
+                "confidence": trading_signals.get("confidence"),  # 0-100
+                "strength": trading_signals.get("strength"),  # weak/moderate/strong
+                "entry_timing": trading_signals.get("entry_timing"),  # immediate/wait/gradual
+                "position_size": trading_signals.get("position_size"),  # small/medium/large
+                "entry_price_range": trading_signals.get("entry_price_range", {}),
+                "stop_loss": trading_signals.get("stop_loss"),
+                "take_profit": trading_signals.get("take_profit", {}),
+                "reasoning": trading_signals.get("reasoning", ""),
+                "risks": trading_signals.get("risks", []),
+                "favorable_factors": trading_signals.get("favorable_factors", []),
+                "unfavorable_factors": trading_signals.get("unfavorable_factors", []),
+                "analysis_breakdown": trading_signals.get("analysis_breakdown", {})
             },
 
             # 메타데이터
