@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 from dotenv import load_dotenv
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from nlp.ner import StockNER
 from naver_api import NaverNewsAPI
@@ -150,7 +150,8 @@ async def crawl_news():
     old_news_count = 0
 
     # 7일 이전 시간 계산 (24시간 → 7일로 완화)
-    cutoff_time = datetime.now() - timedelta(days=7)
+    # UTC timezone aware datetime 사용
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=7)
 
     for news_item in all_news:
         try:
