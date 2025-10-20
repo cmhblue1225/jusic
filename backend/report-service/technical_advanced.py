@@ -28,7 +28,12 @@ def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
     if len(prices) < period + 1:
         return None
 
-    prices_array = np.array(prices)
+    # None 값 필터링
+    filtered_prices = [p for p in prices if p is not None]
+    if len(filtered_prices) < period + 1:
+        return None
+
+    prices_array = np.array(filtered_prices)
     deltas = np.diff(prices_array)
 
     gains = np.where(deltas > 0, deltas, 0)
@@ -72,7 +77,12 @@ def calculate_macd(
     if len(prices) < slow_period + signal_period:
         return None
 
-    prices_series = pd.Series(prices)
+    # None 값 필터링
+    filtered_prices = [p for p in prices if p is not None]
+    if len(filtered_prices) < slow_period + signal_period:
+        return None
+
+    prices_series = pd.Series(filtered_prices)
 
     # EMA 계산
     ema_fast = prices_series.ewm(span=fast_period, adjust=False).mean()
@@ -123,10 +133,18 @@ def calculate_stochastic(
     if len(close_prices) < k_period:
         return None
 
+    # None 값 필터링
+    filtered_highs = [h for h in high_prices if h is not None]
+    filtered_lows = [l for l in low_prices if l is not None]
+    filtered_closes = [c for c in close_prices if c is not None]
+
+    if len(filtered_closes) < k_period or len(filtered_highs) < k_period or len(filtered_lows) < k_period:
+        return None
+
     # 최근 k_period 기간의 최고가/최저가
-    recent_highs = high_prices[-k_period:]
-    recent_lows = low_prices[-k_period:]
-    current_close = close_prices[-1]
+    recent_highs = filtered_highs[-k_period:]
+    recent_lows = filtered_lows[-k_period:]
+    current_close = filtered_closes[-1]
 
     highest_high = max(recent_highs)
     lowest_low = min(recent_lows)
@@ -172,9 +190,17 @@ def calculate_williams_r(
     if len(close_prices) < period:
         return None
 
-    recent_highs = high_prices[-period:]
-    recent_lows = low_prices[-period:]
-    current_close = close_prices[-1]
+    # None 값 필터링
+    filtered_highs = [h for h in high_prices if h is not None]
+    filtered_lows = [l for l in low_prices if l is not None]
+    filtered_closes = [c for c in close_prices if c is not None]
+
+    if len(filtered_closes) < period or len(filtered_highs) < period or len(filtered_lows) < period:
+        return None
+
+    recent_highs = filtered_highs[-period:]
+    recent_lows = filtered_lows[-period:]
+    current_close = filtered_closes[-1]
 
     highest_high = max(recent_highs)
     lowest_low = min(recent_lows)
@@ -213,8 +239,18 @@ def calculate_cci(
     if len(close_prices) < period:
         return None
 
+    # None 값 필터링
+    filtered_data = [
+        (h, l, c) for h, l, c in zip(high_prices, low_prices, close_prices)
+        if h is not None and l is not None and c is not None
+    ]
+
+    if len(filtered_data) < period:
+        return None
+
     # Typical Price = (고가 + 저가 + 종가) / 3
-    typical_prices = [(h + l + c) / 3 for h, l, c in zip(high_prices[-period:], low_prices[-period:], close_prices[-period:])]
+    recent_data = filtered_data[-period:]
+    typical_prices = [(h + l + c) / 3 for h, l, c in recent_data]
 
     sma_tp = np.mean(typical_prices)
     current_tp = typical_prices[-1]
@@ -257,12 +293,24 @@ def calculate_adx(
     if len(close_prices) < period + 1:
         return None
 
+    # None 값 필터링
+    filtered_data = [
+        (h, l, c) for h, l, c in zip(high_prices, low_prices, close_prices)
+        if h is not None and l is not None and c is not None
+    ]
+
+    if len(filtered_data) < period + 1:
+        return None
+
     # 간소화 버전: True Range의 이동평균 기반 ADX 근사값
     tr_values = []
-    for i in range(1, len(close_prices)):
-        high_low = high_prices[i] - low_prices[i]
-        high_close = abs(high_prices[i] - close_prices[i-1])
-        low_close = abs(low_prices[i] - close_prices[i-1])
+    for i in range(1, len(filtered_data)):
+        h_curr, l_curr, c_curr = filtered_data[i]
+        h_prev, l_prev, c_prev = filtered_data[i-1]
+
+        high_low = h_curr - l_curr
+        high_close = abs(h_curr - c_prev)
+        low_close = abs(l_curr - c_prev)
         tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
 
@@ -273,8 +321,9 @@ def calculate_adx(
 
     # ADX 간소화: ATR 기반 추세 강도 (0~100 스케일링)
     # 실제 ADX는 +DI, -DI를 계산해야 하지만, 간소화 버전
-    price_range = max(close_prices[-period:]) - min(close_prices[-period:])
-    current_price = close_prices[-1]
+    recent_closes = [c for h, l, c in filtered_data[-period:]]
+    price_range = max(recent_closes) - min(recent_closes)
+    current_price = recent_closes[-1]
 
     if current_price == 0:
         return 0.0
@@ -305,10 +354,12 @@ def calculate_obv(close_prices: List[float], volumes: List[int]) -> Optional[flo
 
     obv = 0
     for i in range(1, len(close_prices)):
-        if close_prices[i] > close_prices[i-1]:
-            obv += volumes[i]
-        elif close_prices[i] < close_prices[i-1]:
-            obv -= volumes[i]
+        # None 체크 추가
+        if close_prices[i] is not None and close_prices[i-1] is not None:
+            if close_prices[i] > close_prices[i-1]:
+                obv += volumes[i]
+            elif close_prices[i] < close_prices[i-1]:
+                obv -= volumes[i]
 
     return float(obv)
 
@@ -341,17 +392,23 @@ def calculate_mfi(
         return None
 
     # Typical Price = (H + L + C) / 3
-    typical_prices = [(h + l + c) / 3 for h, l, c in zip(high_prices, low_prices, close_prices)]
+    typical_prices = [
+        (h + l + c) / 3 if (h is not None and l is not None and c is not None) else None
+        for h, l, c in zip(high_prices, low_prices, close_prices)
+    ]
 
     # Money Flow = Typical Price * Volume
-    money_flows = [tp * v for tp, v in zip(typical_prices, volumes)]
+    money_flows = [
+        tp * v if tp is not None else 0
+        for tp, v in zip(typical_prices, volumes)
+    ]
 
     # Positive / Negative Money Flow
     positive_mf = 0
     negative_mf = 0
 
     for i in range(len(typical_prices) - period, len(typical_prices)):
-        if i > 0:
+        if i > 0 and typical_prices[i] is not None and typical_prices[i-1] is not None:
             if typical_prices[i] > typical_prices[i-1]:
                 positive_mf += money_flows[i]
             elif typical_prices[i] < typical_prices[i-1]:
@@ -392,10 +449,13 @@ def calculate_vwap(
         return None
 
     # Typical Price = (H + L + C) / 3
-    typical_prices = [(h + l + c) / 3 for h, l, c in zip(high_prices, low_prices, close_prices)]
+    typical_prices = [
+        (h + l + c) / 3 if (h is not None and l is not None and c is not None) else None
+        for h, l, c in zip(high_prices, low_prices, close_prices)
+    ]
 
     # VWAP = Σ(Typical Price * Volume) / Σ(Volume)
-    total_pv = sum([tp * v for tp, v in zip(typical_prices, volumes)])
+    total_pv = sum([tp * v for tp, v in zip(typical_prices, volumes) if tp is not None])
     total_volume = sum(volumes)
 
     if total_volume == 0:
@@ -431,11 +491,23 @@ def calculate_atr(
     if len(close_prices) < period + 1:
         return None
 
+    # None 값 필터링
+    filtered_data = [
+        (h, l, c) for h, l, c in zip(high_prices, low_prices, close_prices)
+        if h is not None and l is not None and c is not None
+    ]
+
+    if len(filtered_data) < period + 1:
+        return None
+
     tr_values = []
-    for i in range(1, len(close_prices)):
-        high_low = high_prices[i] - low_prices[i]
-        high_close = abs(high_prices[i] - close_prices[i-1])
-        low_close = abs(low_prices[i] - close_prices[i-1])
+    for i in range(1, len(filtered_data)):
+        h_curr, l_curr, c_curr = filtered_data[i]
+        h_prev, l_prev, c_prev = filtered_data[i-1]
+
+        high_low = h_curr - l_curr
+        high_close = abs(h_curr - c_prev)
+        low_close = abs(l_curr - c_prev)
         tr = max(high_low, high_close, low_close)
         tr_values.append(tr)
 
@@ -474,8 +546,13 @@ def calculate_keltner_channel(
     if len(close_prices) < period + 1:
         return None
 
+    # None 값 필터링
+    filtered_closes = [c for c in close_prices if c is not None]
+    if len(filtered_closes) < period + 1:
+        return None
+
     # EMA 계산
-    ema = pd.Series(close_prices).ewm(span=period, adjust=False).mean().iloc[-1]
+    ema = pd.Series(filtered_closes).ewm(span=period, adjust=False).mean().iloc[-1]
 
     # ATR 계산
     atr = calculate_atr(high_prices, low_prices, close_prices, period)
