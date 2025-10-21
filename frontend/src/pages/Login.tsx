@@ -20,6 +20,17 @@ export default function Login() {
     }
   };
 
+  const handleTestLogin = async () => {
+    clearError();
+
+    try {
+      await signIn('test@test.com', 'test1234');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('테스트 계정 로그인 실패:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="card max-w-md w-full">
@@ -76,6 +87,33 @@ export default function Login() {
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
+
+          {/* 테스트 계정 로그인 버튼 */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">또는</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleTestLogin}
+            disabled={loading}
+            className="w-full text-lg px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? '로그인 중...' : '🚀 테스트 계정으로 체험하기'}
+          </button>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800 text-center">
+              <strong>💡 테스트 계정 정보</strong>
+              <br />
+              ID: test@test.com / PW: test1234
+            </p>
+          </div>
 
           <div className="text-center">
             <p className="text-lg text-gray-600">
