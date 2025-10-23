@@ -13,6 +13,7 @@ import traceback
 import asyncio
 from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List, Dict, Any
+from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -1092,14 +1093,21 @@ async def export_report_to_pdf(
         today = date.today().isoformat()
         filename = f"{symbol_name}_레포트_{today}.pdf"
 
+        # ASCII 안전 fallback 파일명 (구형 브라우저용)
+        filename_ascii = f"{symbol}_report_{today}.pdf"
+
+        # UTF-8 URL 인코딩 (RFC 5987 표준)
+        filename_encoded = quote(filename.encode('utf-8'))
+
         print(f"✅ PDF 생성 완료: {filename}")
 
         # 4. Response 헤더 설정 및 반환
+        # RFC 5987: filename*=UTF-8''로 한글 파일명 지원
         return Response(
             content=pdf_buffer.getvalue(),
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Disposition": f'attachment; filename="{filename_ascii}"; filename*=UTF-8\'\'{filename_encoded}',
                 "Access-Control-Allow-Origin": "*"
             }
         )
