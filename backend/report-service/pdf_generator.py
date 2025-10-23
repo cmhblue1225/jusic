@@ -41,7 +41,15 @@ try:
         italic='NotoSansKR',  # Italic 없으면 Regular 사용
         boldItalic='NotoSansKR-Bold'  # BoldItalic 없으면 Bold 사용
     )
-    print("✅ 한글 폰트 등록 완료 (NotoSansKR + 패밀리 매핑)")
+
+    # 명시적 폰트 매핑 추가 (ps2tt 함수가 소문자로 검색하는 문제 해결)
+    from reportlab.lib.fonts import addMapping
+    addMapping('NotoSansKR', 0, 0, 'NotoSansKR')         # normal
+    addMapping('NotoSansKR', 1, 0, 'NotoSansKR-Bold')    # bold
+    addMapping('NotoSansKR', 0, 1, 'NotoSansKR')         # italic
+    addMapping('NotoSansKR', 1, 1, 'NotoSansKR-Bold')    # bold+italic
+
+    print("✅ 한글 폰트 등록 완료 (NotoSansKR + 패밀리 매핑 + 명시적 매핑)")
 except Exception as e:
     print(f"⚠️ 한글 폰트 등록 실패: {e}")
     print("   → Helvetica 폰트로 대체됩니다 (한글이 깨질 수 있음)")
