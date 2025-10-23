@@ -29,9 +29,19 @@ import numpy as np
 # 한글 폰트 등록
 FONTS_DIR = os.path.join(os.path.dirname(__file__), 'fonts')
 try:
+    # 폰트 파일 등록
     pdfmetrics.registerFont(TTFont('NotoSansKR', os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')))
     pdfmetrics.registerFont(TTFont('NotoSansKR-Bold', os.path.join(FONTS_DIR, 'NotoSansKR-Bold.ttf')))
-    print("✅ 한글 폰트 등록 완료 (NotoSansKR)")
+
+    # 폰트 패밀리 매핑 (Bold, Italic 자동 인식)
+    pdfmetrics.registerFontFamily(
+        'NotoSansKR',
+        normal='NotoSansKR',
+        bold='NotoSansKR-Bold',
+        italic='NotoSansKR',  # Italic 없으면 Regular 사용
+        boldItalic='NotoSansKR-Bold'  # BoldItalic 없으면 Bold 사용
+    )
+    print("✅ 한글 폰트 등록 완료 (NotoSansKR + 패밀리 매핑)")
 except Exception as e:
     print(f"⚠️ 한글 폰트 등록 실패: {e}")
     print("   → Helvetica 폰트로 대체됩니다 (한글이 깨질 수 있음)")
@@ -85,7 +95,7 @@ class StockReportPDF:
             textColor=colors.HexColor('#2563EB'),
             spaceAfter=30,
             alignment=TA_CENTER,
-            fontName='NotoSansKR-Bold'
+            fontName='NotoSansKR'  # 패밀리 이름만 사용 (Bold는 <b> 태그로 적용)
         ))
 
         # 소제목 스타일
@@ -95,7 +105,7 @@ class StockReportPDF:
             fontSize=16,
             textColor=colors.HexColor('#1F2937'),
             spaceAfter=12,
-            fontName='NotoSansKR-Bold'
+            fontName='NotoSansKR'  # 패밀리 이름만 사용
         ))
 
         # 본문 스타일
@@ -115,14 +125,14 @@ class StockReportPDF:
             parent=self.styles['Normal'],
             fontSize=14,
             textColor=colors.HexColor('#2563EB'),
-            fontName='Helvetica-Bold'
+            fontName='NotoSansKR'  # 한글 폰트 사용
         ))
 
     def _create_cover_page(self):
         """커버 페이지 생성"""
         # 로고/제목
         title = Paragraph(
-            "📈 트레이딩 인텔리전스 플랫폼",
+            "<b>📈 트레이딩 인텔리전스 플랫폼</b>",
             self.styles['CustomTitle']
         )
         self.story.append(title)
@@ -136,7 +146,7 @@ class StockReportPDF:
                 fontSize=28,
                 textColor=colors.HexColor('#1F2937'),
                 alignment=TA_CENTER,
-                fontName='Helvetica-Bold'
+                fontName='NotoSansKR'  # 한글 폰트 사용
             )
         )
         self.story.append(stock_name)
@@ -170,7 +180,7 @@ class StockReportPDF:
             ('BACKGROUND', (1, 0), (1, -1), colors.white),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1F2937')),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (0, -1), 'NotoSansKR'),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#DBEAFE')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -325,7 +335,7 @@ class StockReportPDF:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'NotoSansKR'),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#DBEAFE')),
@@ -366,7 +376,7 @@ class StockReportPDF:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10B981')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'NotoSansKR'),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#D1FAE5')),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
@@ -430,7 +440,7 @@ class StockReportPDF:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F59E0B')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'NotoSansKR'),
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#FDE68A')),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
