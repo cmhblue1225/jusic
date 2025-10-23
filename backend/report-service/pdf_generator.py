@@ -29,34 +29,14 @@ import numpy as np
 # 한글 폰트 등록
 FONTS_DIR = os.path.join(os.path.dirname(__file__), 'fonts')
 try:
-    # 폰트 파일 등록
-    pdfmetrics.registerFont(TTFont('NotoSansKR', os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')))
+    # 폰트 파일 등록 (패밀리 매핑 없이 개별 폰트만 등록)
+    pdfmetrics.registerFont(TTFont('NotoSansKR-Regular', os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')))
     pdfmetrics.registerFont(TTFont('NotoSansKR-Bold', os.path.join(FONTS_DIR, 'NotoSansKR-Bold.ttf')))
 
-    # 폰트 패밀리 매핑 (Bold, Italic 자동 인식)
-    pdfmetrics.registerFontFamily(
-        'NotoSansKR',
-        normal='NotoSansKR',
-        bold='NotoSansKR-Bold',
-        italic='NotoSansKR',  # Italic 없으면 Regular 사용
-        boldItalic='NotoSansKR-Bold'  # BoldItalic 없으면 Bold 사용
-    )
+    # 주의: 폰트 패밀리 매핑 사용하지 않음 (ps2tt() 문제 회피)
+    # 모든 스타일에서 'NotoSansKR-Regular' 또는 'NotoSansKR-Bold' 명시적 사용
 
-    # 명시적 폰트 매핑 추가 (ps2tt 함수가 소문자로 검색하는 문제 해결)
-    from reportlab.lib.fonts import addMapping
-    # 대문자 버전
-    addMapping('NotoSansKR', 0, 0, 'NotoSansKR')         # normal
-    addMapping('NotoSansKR', 1, 0, 'NotoSansKR-Bold')    # bold
-    addMapping('NotoSansKR', 0, 1, 'NotoSansKR')         # italic
-    addMapping('NotoSansKR', 1, 1, 'NotoSansKR-Bold')    # bold+italic
-
-    # 소문자 버전 (ps2tt가 소문자로 변환해서 검색함)
-    addMapping('notosanskr', 0, 0, 'NotoSansKR')         # normal
-    addMapping('notosanskr', 1, 0, 'NotoSansKR-Bold')    # bold
-    addMapping('notosanskr', 0, 1, 'NotoSansKR')         # italic
-    addMapping('notosanskr', 1, 1, 'NotoSansKR-Bold')    # bold+italic
-
-    print("✅ 한글 폰트 등록 완료 (NotoSansKR + 패밀리 매핑 + 대소문자 매핑)")
+    print("✅ 한글 폰트 등록 완료 (NotoSansKR-Regular, NotoSansKR-Bold)")
 except Exception as e:
     print(f"⚠️ 한글 폰트 등록 실패: {e}")
     print("   → Helvetica 폰트로 대체됩니다 (한글이 깨질 수 있음)")
@@ -102,7 +82,7 @@ class StockReportPDF:
 
     def _setup_custom_styles(self):
         """커스텀 스타일 설정"""
-        # 제목 스타일
+        # 제목 스타일 (Bold 폰트 직접 지정)
         self.styles.add(ParagraphStyle(
             name='CustomTitle',
             parent=self.styles['Heading1'],
@@ -110,20 +90,20 @@ class StockReportPDF:
             textColor=colors.HexColor('#2563EB'),
             spaceAfter=30,
             alignment=TA_CENTER,
-            fontName='NotoSansKR'  # 패밀리 이름만 사용 (Bold는 <b> 태그로 적용)
+            fontName='NotoSansKR-Bold'  # 명시적 Bold 폰트
         ))
 
-        # 소제목 스타일
+        # 소제목 스타일 (Bold 폰트)
         self.styles.add(ParagraphStyle(
             name='CustomHeading',
             parent=self.styles['Heading2'],
             fontSize=16,
             textColor=colors.HexColor('#1F2937'),
             spaceAfter=12,
-            fontName='NotoSansKR'  # 패밀리 이름만 사용
+            fontName='NotoSansKR-Bold'  # 명시적 Bold 폰트
         ))
 
-        # 본문 스타일
+        # 본문 스타일 (Regular 폰트)
         self.styles.add(ParagraphStyle(
             name='CustomBody',
             parent=self.styles['Normal'],
@@ -131,16 +111,16 @@ class StockReportPDF:
             leading=16,
             textColor=colors.HexColor('#374151'),
             alignment=TA_JUSTIFY,
-            fontName='NotoSansKR'
+            fontName='NotoSansKR-Regular'  # 명시적 Regular 폰트
         ))
 
-        # 강조 텍스트
+        # 강조 텍스트 (Regular 폰트)
         self.styles.add(ParagraphStyle(
             name='Highlight',
             parent=self.styles['Normal'],
             fontSize=14,
             textColor=colors.HexColor('#2563EB'),
-            fontName='NotoSansKR'  # 한글 폰트 사용
+            fontName='NotoSansKR-Regular'  # 명시적 Regular 폰트
         ))
 
     def _create_cover_page(self):
