@@ -29,16 +29,31 @@ import numpy as np
 # 한글 폰트 등록
 FONTS_DIR = os.path.join(os.path.dirname(__file__), 'fonts')
 try:
-    # 폰트 파일 등록 (패밀리 매핑 없이 개별 폰트만 등록)
-    pdfmetrics.registerFont(TTFont('NotoSansKR-Regular', os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')))
-    pdfmetrics.registerFont(TTFont('NotoSansKR-Bold', os.path.join(FONTS_DIR, 'NotoSansKR-Bold.ttf')))
+    # 폰트 파일 등록 (소문자 이름으로 등록하여 ps2tt() 소문자 변환 문제 완전 회피)
+    font_regular_path = os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')
+    font_bold_path = os.path.join(FONTS_DIR, 'NotoSansKR-Bold.ttf')
 
-    # 주의: 폰트 패밀리 매핑 사용하지 않음 (ps2tt() 문제 회피)
-    # 모든 스타일에서 'NotoSansKR-Regular' 또는 'NotoSansKR-Bold' 명시적 사용
+    # 폰트 파일 존재 여부 확인 (디버깅)
+    if not os.path.exists(font_regular_path):
+        print(f"⚠️ Regular 폰트 파일 없음: {font_regular_path}")
+    if not os.path.exists(font_bold_path):
+        print(f"⚠️ Bold 폰트 파일 없음: {font_bold_path}")
 
-    print("✅ 한글 폰트 등록 완료 (NotoSansKR-Regular, NotoSansKR-Bold)")
+    # 소문자 폰트 이름으로 등록 (ps2tt가 소문자로 변환하는 것에 대응)
+    pdfmetrics.registerFont(TTFont('notosanskr-regular', font_regular_path))
+    pdfmetrics.registerFont(TTFont('notosanskr-bold', font_bold_path))
+
+    # 주의: 폰트 패밀리 매핑 사용하지 않음
+    # 모든 스타일에서 'notosanskr-regular' 또는 'notosanskr-bold' 명시적 사용
+
+    print("✅ 한글 폰트 등록 완료 (notosanskr-regular, notosanskr-bold)")
+    print(f"   - Regular 경로: {font_regular_path}")
+    print(f"   - Bold 경로: {font_bold_path}")
 except Exception as e:
     print(f"⚠️ 한글 폰트 등록 실패: {e}")
+    print(f"   - FONTS_DIR: {FONTS_DIR}")
+    import traceback
+    traceback.print_exc()
     print("   → Helvetica 폰트로 대체됩니다 (한글이 깨질 수 있음)")
 
 # matplotlib 한글 폰트 설정
@@ -82,10 +97,10 @@ class StockReportPDF:
 
     def _setup_custom_styles(self):
         """커스텀 스타일 설정 (parent 상속 없이 완전 독립형)"""
-        # 제목 스타일 (parent 없이 모든 속성 명시)
+        # 제목 스타일 (소문자 폰트 이름 사용)
         self.styles.add(ParagraphStyle(
             name='CustomTitle',
-            fontName='NotoSansKR-Bold',  # 명시적 Bold 폰트
+            fontName='notosanskr-bold',  # 소문자 폰트 이름
             fontSize=24,
             leading=28,
             textColor=colors.HexColor('#2563EB'),
@@ -96,10 +111,10 @@ class StockReportPDF:
             rightIndent=0
         ))
 
-        # 소제목 스타일 (parent 없이 모든 속성 명시)
+        # 소제목 스타일 (소문자 폰트 이름 사용)
         self.styles.add(ParagraphStyle(
             name='CustomHeading',
-            fontName='NotoSansKR-Bold',  # 명시적 Bold 폰트
+            fontName='notosanskr-bold',  # 소문자 폰트 이름
             fontSize=16,
             leading=20,
             textColor=colors.HexColor('#1F2937'),
@@ -110,10 +125,10 @@ class StockReportPDF:
             rightIndent=0
         ))
 
-        # 본문 스타일 (parent 없이 모든 속성 명시)
+        # 본문 스타일 (소문자 폰트 이름 사용)
         self.styles.add(ParagraphStyle(
             name='CustomBody',
-            fontName='NotoSansKR-Regular',  # 명시적 Regular 폰트
+            fontName='notosanskr-regular',  # 소문자 폰트 이름
             fontSize=11,
             leading=16,
             textColor=colors.HexColor('#374151'),
@@ -124,10 +139,10 @@ class StockReportPDF:
             rightIndent=0
         ))
 
-        # 강조 텍스트 (parent 없이 모든 속성 명시)
+        # 강조 텍스트 (소문자 폰트 이름 사용)
         self.styles.add(ParagraphStyle(
             name='Highlight',
-            fontName='NotoSansKR-Regular',  # 명시적 Regular 폰트
+            fontName='notosanskr-regular',  # 소문자 폰트 이름
             fontSize=14,
             leading=18,
             textColor=colors.HexColor('#2563EB'),
@@ -148,16 +163,20 @@ class StockReportPDF:
         self.story.append(title)
         self.story.append(Spacer(1, 1*cm))
 
-        # 종목명 (b 태그 제거)
+        # 종목명 (소문자 폰트 이름 사용)
         stock_name = Paragraph(
             f"{self.data.get('symbol_name', '')} ({self.data.get('symbol', '')})",
             ParagraphStyle(
                 name='StockName',
                 fontSize=28,
+                leading=34,
                 textColor=colors.HexColor('#1F2937'),
                 alignment=TA_CENTER,
-                fontName='NotoSansKR-Bold',  # Bold 폰트 직접 지정
-                spaceAfter=10
+                fontName='notosanskr-bold',  # 소문자 폰트 이름
+                spaceAfter=10,
+                spaceBefore=0,
+                leftIndent=0,
+                rightIndent=0
             )
         )
         self.story.append(stock_name)
