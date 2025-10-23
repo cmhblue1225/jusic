@@ -1275,18 +1275,27 @@ async def generate_report_internal(symbol: str, symbol_name: str) -> Dict[str, A
     target_prices = calculate_target_prices(
         current_price=indicators["current_price"],
         financial_data=financial_data,
-        technical_indicators=indicators,
         analyst_opinion=analyst_opinion,
-        ai_result=ai_result
+        price_data=indicators,
+        sector_relative=sector_relative,
+        market_context=market_context
     )
 
     # 6. 매매 신호 생성
+    # ai_result의 risk_score를 risk_scores 형식으로 변환
+    ai_risk_score = ai_result.get("risk_score", 50)
+    risk_scores_formatted = {
+        "short_term": {"score": ai_risk_score},
+        "mid_term": {"score": ai_risk_score},
+        "long_term": {"score": ai_risk_score}
+    }
+
     trading_signals = generate_trading_signals(
         current_price=indicators["current_price"],
         target_prices=target_prices,
         technical_indicators=indicators,
-        risk_scores={},
-        market_context={},
+        risk_scores=risk_scores_formatted,
+        market_context=market_context,
         ai_recommendations=ai_result,
         analyst_opinion=analyst_opinion,
         financial_data=financial_data
