@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { StockReport } from '../stores/reportStore';
 import { useAuthStore } from '../stores/authStore';
 import { useReportStore } from '../stores/reportStore';
-import { bookmarkReport } from '../lib/reportApi';
+import { bookmarkReport, exportReportToPDF } from '../lib/reportApi';
 import PriceChart from './PriceChart';
 import FinancialChart from './FinancialChart';
 
@@ -20,6 +20,8 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
   const { bookmarks, addBookmark } = useReportStore();
   const [isBookmarking, setIsBookmarking] = useState(false);
   const [bookmarkError, setBookmarkError] = useState<string | null>(null);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // 이미 북마크되어 있는지 확인
   const isBookmarked = bookmarks.some(
@@ -56,6 +58,22 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
       setBookmarkError(error instanceof Error ? error.message : '북마크 저장에 실패했습니다');
     } finally {
       setIsBookmarking(false);
+    }
+  };
+
+  // PDF 다운로드 핸들러
+  const handleDownloadPDF = async () => {
+    setIsDownloadingPDF(true);
+    setPdfError(null);
+
+    try {
+      await exportReportToPDF(report.symbol, report.symbol_name);
+      // 다운로드 성공 알림은 파일 다운로드로 충분
+    } catch (error) {
+      console.error('[ReportCard] PDF 다운로드 실패:', error);
+      setPdfError(error instanceof Error ? error.message : 'PDF 다운로드에 실패했습니다');
+    } finally {
+      setIsDownloadingPDF(false);
     }
   };
 
@@ -140,6 +158,38 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* PDF 다운로드 버튼 */}
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isDownloadingPDF}
+            className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="PDF로 다운로드"
+          >
+            {isDownloadingPDF ? (
+              <span className="flex items-center">
+                <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                생성 중...
+              </span>
+            ) : (
+              <>📥 PDF 다운로드</>
+            )}
+          </button>
+
           {/* 북마크 버튼 (로그인 사용자만) */}
           {user && (
             <button
@@ -194,6 +244,13 @@ export default function ReportCard({ report, onClose }: ReportCardProps) {
       {bookmarkError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           ⚠️ {bookmarkError}
+        </div>
+      )}
+
+      {/* PDF 에러 메시지 */}
+      {pdfError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          ⚠️ {pdfError}
         </div>
       )}
 

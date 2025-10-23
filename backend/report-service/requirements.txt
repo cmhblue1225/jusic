@@ -19,3 +19,8 @@ pandas==2.2.0
 
 # Date/Time
 python-dateutil==2.9.0
+
+# PDF Generation
+reportlab==4.0.7
+matplotlib==3.8.2
+pillow==10.1.0

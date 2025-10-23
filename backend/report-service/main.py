@@ -1054,6 +1054,311 @@ async def delete_bookmark(bookmark_id: str, authorization: Optional[str] = Heade
         raise HTTPException(status_code=500, detail=f"북마크 삭제 중 오류 발생: {str(e)}")
 
 
+@app.post("/api/reports/export-pdf")
+async def export_report_to_pdf(
+    request: ReportRequest,
+    response: Response,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    레포트를 PDF로 내보내기
+
+    Args:
+        request: 종목 코드 및 종목명
+        authorization: JWT 토큰 (선택)
+
+    Returns:
+        PDF 파일 (application/pdf)
+    """
+    # CORS 헤더
+    response.headers["Access-Control-Allow-Origin"] = "*"
+
+    symbol = request.symbol
+    symbol_name = request.symbol_name
+
+    try:
+        print(f"📄 PDF 내보내기 요청: {symbol_name} ({symbol})")
+
+        # 1. 레포트 데이터 생성 (generate_report 로직 재사용)
+        report_data = await generate_report_internal(symbol, symbol_name)
+
+        # 2. PDF 생성
+        from pdf_generator import StockReportPDF
+
+        pdf_generator = StockReportPDF(report_data)
+        pdf_buffer = pdf_generator.generate()
+
+        # 3. PDF 파일명 생성
+        today = date.today().isoformat()
+        filename = f"{symbol_name}_레포트_{today}.pdf"
+
+        print(f"✅ PDF 생성 완료: {filename}")
+
+        # 4. Response 헤더 설정 및 반환
+        return Response(
+            content=pdf_buffer.getvalue(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+
+    except Exception as e:
+        print(f"❌ PDF 내보내기 실패: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PDF 생성 중 오류 발생: {str(e)}")
+
+
+async def generate_report_internal(symbol: str, symbol_name: str) -> Dict[str, Any]:
+    """
+    레포트 데이터 생성 (내부 함수)
+    PDF 생성 및 API 응답에서 재사용
+
+    Returns:
+        Dict: 레포트 데이터
+    """
+    report_date_str = date.today().isoformat()
+
+    # 2-1. 필수 데이터 (OHLCV) 먼저 조회
+    ohlcv_data = await rate_limited_kis_request(get_daily_ohlcv, symbol, days=60)
+
+    if not ohlcv_data or len(ohlcv_data) < 20:
+        raise HTTPException(
+            status_code=400,
+            detail=f"주가 데이터가 부족합니다. (최소 20일 필요, 현재: {len(ohlcv_data)}일)"
+        )
+
+    # 2-2. 병렬 데이터 조회
+    async def safe_get_financial():
+        try:
+            return await rate_limited_kis_request(get_financial_ratio, symbol)
+        except Exception as e:
+            print(f"⚠️ 재무 데이터 조회 실패: {str(e)}")
+            return {}
+
+    async def safe_get_investor():
+        try:
+            return await rate_limited_kis_request(get_investor_trend, symbol)
+        except Exception as e:
+            print(f"⚠️ 투자자 동향 조회 실패: {str(e)}")
+            return {}
+
+    async def safe_get_advanced():
+        try:
+            return await rate_limited_kis_request(get_advanced_stock_data, symbol)
+        except Exception as e:
+            print(f"⚠️ 고급 데이터 조회 실패: {str(e)}")
+            return {}
+
+    async def safe_get_news():
+        try:
+            seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            result = supabase.from_("news") \
+                .select("*") \
+                .contains("related_symbols", [symbol]) \
+                .gte("published_at", seven_days_ago) \
+                .order("published_at", desc=True) \
+                .limit(50) \
+                .execute()
+            return result.data or []
+        except Exception as e:
+            print(f"⚠️ 뉴스 조회 실패: {str(e)}")
+            return []
+
+    async def safe_get_analyst_opinion():
+        try:
+            return await rate_limited_kis_request(get_analyst_opinion, symbol)
+        except Exception as e:
+            print(f"⚠️ 애널리스트 의견 조회 실패: {str(e)}")
+            return {"buy_count": 0, "hold_count": 0, "sell_count": 0, "avg_target_price": None, "total_count": 0}
+
+    async def safe_get_sector_info():
+        try:
+            return await rate_limited_kis_request(get_sector_info, symbol)
+        except Exception as e:
+            print(f"⚠️ 업종 정보 조회 실패: {str(e)}")
+            return {"sector_name": None, "sector_code": None}
+
+    async def safe_get_credit_balance():
+        try:
+            return await rate_limited_kis_request(get_credit_balance_trend, symbol, days=5)
+        except Exception as e:
+            print(f"⚠️ 신용잔고 조회 실패: {str(e)}")
+            return []
+
+    async def safe_get_short_selling():
+        try:
+            return await rate_limited_kis_request(get_short_selling_trend, symbol, days=5)
+        except Exception as e:
+            print(f"⚠️ 공매도 조회 실패: {str(e)}")
+            return []
+
+    async def safe_get_program_trading():
+        try:
+            return await rate_limited_kis_request(get_program_trading_trend, symbol, days=5)
+        except Exception as e:
+            print(f"⚠️ 프로그램 매매 조회 실패: {str(e)}")
+            return []
+
+    async def safe_get_institutional_flow():
+        try:
+            return await rate_limited_kis_request(get_institutional_flow_estimate, symbol)
+        except Exception as e:
+            print(f"⚠️ 기관 수급 조회 실패: {str(e)}")
+            return {"foreign_net_buy_amt": 0, "institution_net_buy_amt": 0}
+
+    async def safe_get_kospi_index():
+        try:
+            return await rate_limited_kis_request(get_index_price, "0001")
+        except Exception as e:
+            print(f"⚠️ KOSPI 지수 조회 실패: {str(e)}")
+            return {"index_value": 0, "change_rate": 0}
+
+    (
+        financial_data,
+        investor_data,
+        advanced_data,
+        news_data,
+        analyst_opinion,
+        sector_info,
+        credit_balance,
+        short_selling,
+        program_trading,
+        institutional_flow,
+        kospi_index
+    ) = await asyncio.gather(
+        safe_get_financial(),
+        safe_get_investor(),
+        safe_get_advanced(),
+        safe_get_news(),
+        safe_get_analyst_opinion(),
+        safe_get_sector_info(),
+        safe_get_credit_balance(),
+        safe_get_short_selling(),
+        safe_get_program_trading(),
+        safe_get_institutional_flow(),
+        safe_get_kospi_index()
+    )
+
+    # 3. 기술적 지표 계산
+    indicators = calculate_all_indicators(ohlcv_data, include_advanced=True)
+
+    # 3-1. 차트 데이터 준비
+    chart_data = prepare_chart_data(ohlcv_data, indicators)
+
+    # 4. AI 분석
+    use_ensemble = os.getenv("USE_AI_ENSEMBLE", "true").lower() == "true"
+
+    if use_ensemble:
+        ai_result = await analyze_with_ensemble(
+            symbol,
+            symbol_name,
+            indicators,
+            news_data,
+            financial_data=financial_data,
+            investor_data=investor_data,
+            analyst_opinion=analyst_opinion,
+            sector_info=sector_info,
+            market_index=kospi_index,
+            credit_balance=credit_balance,
+            short_selling=short_selling,
+            program_trading=program_trading,
+            institutional_flow=institutional_flow,
+            sector_relative={},
+            market_context={}
+        )
+    else:
+        ai_result = await analyze_stock(symbol, symbol_name, indicators, news_data)
+
+    # 5. 목표가 산출
+    target_prices = calculate_target_prices(
+        current_price=indicators["current_price"],
+        financial_data=financial_data,
+        technical_indicators=indicators,
+        analyst_opinion=analyst_opinion,
+        ai_result=ai_result
+    )
+
+    # 6. 매매 신호 생성
+    trading_signals = generate_trading_signals(
+        current_price=indicators["current_price"],
+        target_prices=target_prices,
+        technical_indicators=indicators,
+        risk_scores={},
+        market_context={},
+        ai_recommendations=ai_result,
+        analyst_opinion=analyst_opinion,
+        financial_data=financial_data
+    )
+
+    # 7. 레포트 데이터 구성
+    report = {
+        "symbol": symbol,
+        "symbol_name": symbol_name,
+        "report_date": report_date_str,
+        "current_price": indicators["current_price"],
+        "change_rate": indicators["change_rate"],
+        "high_price": indicators["high"],
+        "low_price": indicators["low"],
+        "avg_price": indicators["avg"],
+        "volume": indicators["volume"],
+        "ma5": indicators.get("ma5"),
+        "ma20": indicators.get("ma20"),
+        "ma60": indicators.get("ma60"),
+        "volume_ratio": indicators.get("volume_ratio"),
+        "volatility": indicators.get("volatility"),
+        "bollinger_upper": indicators.get("bollinger_upper"),
+        "bollinger_lower": indicators.get("bollinger_lower"),
+        "rsi": indicators.get("rsi"),
+        "macd": indicators.get("macd"),
+        "macd_signal": indicators.get("macd_signal"),
+        "macd_histogram": indicators.get("macd_histogram"),
+        "summary": ai_result["summary"],
+        "risk_level": ai_result["risk_level"],
+        "recommendation": ai_result["recommendation"],
+        "evaluation_score": ai_result["evaluation_score"],
+        "per": financial_data.get("per"),
+        "pbr": financial_data.get("pbr"),
+        "roe": financial_data.get("roe"),
+        "dividend_yield": financial_data.get("dividend_yield"),
+        "eps": financial_data.get("eps"),
+        "bps": financial_data.get("bps"),
+        "operating_margin": financial_data.get("operating_margin"),
+        "net_margin": financial_data.get("net_margin"),
+        "debt_ratio": financial_data.get("debt_ratio"),
+        "investment_strategies": {
+            "short_term": ai_result.get("timeframe_analysis", {}).get("short_term", {}),
+            "medium_term": ai_result.get("timeframe_analysis", {}).get("medium_term", {}),
+            "long_term": ai_result.get("timeframe_analysis", {}).get("long_term", {})
+        },
+        "target_prices": {
+            "conservative": target_prices.get("conservative"),
+            "neutral": target_prices.get("neutral"),
+            "aggressive": target_prices.get("aggressive"),
+            "upside_potential": target_prices.get("upside_potential", {}),
+            "gap_analysis": analyze_target_price_gap(
+                current_price=indicators["current_price"],
+                conservative=target_prices.get("conservative"),
+                neutral=target_prices.get("neutral"),
+                aggressive=target_prices.get("aggressive")
+            )
+        },
+        "trading_signals": {
+            "signal": trading_signals.get("signal"),
+            "confidence": trading_signals.get("confidence"),
+            "strength": trading_signals.get("strength"),
+            "entry_timing": trading_signals.get("entry_timing"),
+            "comprehensive_risk": trading_signals.get("comprehensive_risk", {})
+        },
+        "chart_data": chart_data,
+        "ai_model": "ensemble" if use_ensemble else "gpt-4",
+        "cached": False
+    }
+
+    return report
+
+
 if __name__ == "__main__":
     import uvicorn
     # Railway/Render에서 제공하는 PORT 환경 변수 사용

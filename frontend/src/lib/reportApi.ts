@@ -139,3 +139,51 @@ export async function bookmarkReport(symbol: string, symbolName: string): Promis
     throw error;
   }
 }
+
+/**
+ * 레포트 PDF 다운로드
+ */
+export async function exportReportToPDF(symbol: string, symbolName: string): Promise<void> {
+  try {
+    // JWT 토큰 가져오기
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const response = await fetch(`${REPORT_SERVICE_URL}/api/reports/export-pdf`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: JSON.stringify({
+        symbol,
+        symbol_name: symbolName,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'PDF 생성에 실패했습니다');
+    }
+
+    // PDF 파일 다운로드
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    // 파일명 생성 (예: 삼성전자_레포트_2025-10-21.pdf)
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = `${symbolName}_레포트_${today}.pdf`;
+
+    document.body.appendChild(a);
+    a.click();
+
+    // 정리
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('[Report API] PDF 다운로드 실패:', error);
+    throw error;
+  }
+}
