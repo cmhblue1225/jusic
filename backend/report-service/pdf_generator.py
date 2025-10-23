@@ -81,46 +81,61 @@ class StockReportPDF:
         self.story = []
 
     def _setup_custom_styles(self):
-        """커스텀 스타일 설정"""
-        # 제목 스타일 (Bold 폰트 직접 지정)
+        """커스텀 스타일 설정 (parent 상속 없이 완전 독립형)"""
+        # 제목 스타일 (parent 없이 모든 속성 명시)
         self.styles.add(ParagraphStyle(
             name='CustomTitle',
-            parent=self.styles['Heading1'],
+            fontName='NotoSansKR-Bold',  # 명시적 Bold 폰트
             fontSize=24,
+            leading=28,
             textColor=colors.HexColor('#2563EB'),
             spaceAfter=30,
+            spaceBefore=0,
             alignment=TA_CENTER,
-            fontName='NotoSansKR-Bold'  # 명시적 Bold 폰트
+            leftIndent=0,
+            rightIndent=0
         ))
 
-        # 소제목 스타일 (Bold 폰트)
+        # 소제목 스타일 (parent 없이 모든 속성 명시)
         self.styles.add(ParagraphStyle(
             name='CustomHeading',
-            parent=self.styles['Heading2'],
+            fontName='NotoSansKR-Bold',  # 명시적 Bold 폰트
             fontSize=16,
+            leading=20,
             textColor=colors.HexColor('#1F2937'),
             spaceAfter=12,
-            fontName='NotoSansKR-Bold'  # 명시적 Bold 폰트
+            spaceBefore=12,
+            alignment=TA_LEFT,
+            leftIndent=0,
+            rightIndent=0
         ))
 
-        # 본문 스타일 (Regular 폰트)
+        # 본문 스타일 (parent 없이 모든 속성 명시)
         self.styles.add(ParagraphStyle(
             name='CustomBody',
-            parent=self.styles['Normal'],
+            fontName='NotoSansKR-Regular',  # 명시적 Regular 폰트
             fontSize=11,
             leading=16,
             textColor=colors.HexColor('#374151'),
             alignment=TA_JUSTIFY,
-            fontName='NotoSansKR-Regular'  # 명시적 Regular 폰트
+            spaceAfter=6,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0
         ))
 
-        # 강조 텍스트 (Regular 폰트)
+        # 강조 텍스트 (parent 없이 모든 속성 명시)
         self.styles.add(ParagraphStyle(
             name='Highlight',
-            parent=self.styles['Normal'],
+            fontName='NotoSansKR-Regular',  # 명시적 Regular 폰트
             fontSize=14,
+            leading=18,
             textColor=colors.HexColor('#2563EB'),
-            fontName='NotoSansKR-Regular'  # 명시적 Regular 폰트
+            alignment=TA_LEFT,
+            spaceAfter=6,
+            spaceBefore=0,
+            leftIndent=0,
+            rightIndent=0
         ))
 
     def _create_cover_page(self):
