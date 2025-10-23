@@ -44,12 +44,19 @@ try:
 
     # 명시적 폰트 매핑 추가 (ps2tt 함수가 소문자로 검색하는 문제 해결)
     from reportlab.lib.fonts import addMapping
+    # 대문자 버전
     addMapping('NotoSansKR', 0, 0, 'NotoSansKR')         # normal
     addMapping('NotoSansKR', 1, 0, 'NotoSansKR-Bold')    # bold
     addMapping('NotoSansKR', 0, 1, 'NotoSansKR')         # italic
     addMapping('NotoSansKR', 1, 1, 'NotoSansKR-Bold')    # bold+italic
 
-    print("✅ 한글 폰트 등록 완료 (NotoSansKR + 패밀리 매핑 + 명시적 매핑)")
+    # 소문자 버전 (ps2tt가 소문자로 변환해서 검색함)
+    addMapping('notosanskr', 0, 0, 'NotoSansKR')         # normal
+    addMapping('notosanskr', 1, 0, 'NotoSansKR-Bold')    # bold
+    addMapping('notosanskr', 0, 1, 'NotoSansKR')         # italic
+    addMapping('notosanskr', 1, 1, 'NotoSansKR-Bold')    # bold+italic
+
+    print("✅ 한글 폰트 등록 완료 (NotoSansKR + 패밀리 매핑 + 대소문자 매핑)")
 except Exception as e:
     print(f"⚠️ 한글 폰트 등록 실패: {e}")
     print("   → Helvetica 폰트로 대체됩니다 (한글이 깨질 수 있음)")
@@ -138,23 +145,24 @@ class StockReportPDF:
 
     def _create_cover_page(self):
         """커버 페이지 생성"""
-        # 로고/제목
+        # 로고/제목 (b 태그 제거 - 폰트 매핑 문제 회피)
         title = Paragraph(
-            "<b>📈 트레이딩 인텔리전스 플랫폼</b>",
+            "📈 트레이딩 인텔리전스 플랫폼",
             self.styles['CustomTitle']
         )
         self.story.append(title)
         self.story.append(Spacer(1, 1*cm))
 
-        # 종목명
+        # 종목명 (b 태그 제거)
         stock_name = Paragraph(
-            f"<b>{self.data.get('symbol_name', '')} ({self.data.get('symbol', '')})</b>",
+            f"{self.data.get('symbol_name', '')} ({self.data.get('symbol', '')})",
             ParagraphStyle(
                 name='StockName',
                 fontSize=28,
                 textColor=colors.HexColor('#1F2937'),
                 alignment=TA_CENTER,
-                fontName='NotoSansKR'  # 한글 폰트 사용
+                fontName='NotoSansKR-Bold',  # Bold 폰트 직접 지정
+                spaceAfter=10
             )
         )
         self.story.append(stock_name)
@@ -167,8 +175,8 @@ class StockReportPDF:
 
         price_text = f"""
         <para align=center>
-            <font size=20><b>{current_price:,.0f}원</b></font><br/>
-            <font size=16 color="{price_color}"><b>{change_rate:+.2f}%</b></font>
+            <font size=20>{current_price:,.0f}원</font><br/>
+            <font size=16 color="{price_color}">{change_rate:+.2f}%</font>
         </para>
         """
         self.story.append(Paragraph(price_text, self.styles['CustomBody']))
