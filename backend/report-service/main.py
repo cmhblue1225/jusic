@@ -1241,6 +1241,43 @@ async def generate_report_internal(symbol: str, symbol_name: str) -> Dict[str, A
         safe_get_kospi_index()
     )
 
+    # 2-1. 업종 상대 평가 조회
+    sector_relative = {}
+    if sector_info.get("sector_code"):
+        try:
+            sector_relative = await rate_limited_kis_request(
+                get_sector_relative_analysis,
+                symbol,
+                sector_info.get("sector_code")
+            )
+            print(f"✅ 업종 상대 평가: 상대강도 {sector_relative.get('relative_strength', 1.0):.2f}")
+        except Exception as e:
+            print(f"⚠️ 업종 상대 평가 실패: {str(e)}")
+            sector_relative = {
+                "sector_avg_change_rate": 0,
+                "relative_strength": 1.0,
+                "sector_rank_pct": 50,
+                "sector_avg_volume_ratio": 1.0,
+                "sector_avg_per": 0,
+                "sector_avg_pbr": 0,
+                "outperformance": 0,
+                "sample_size": 0
+            }
+
+    # 2-2. 시장 전체 맥락 분석
+    market_context = {}
+    try:
+        market_context = await rate_limited_kis_request(get_market_context)
+        print(f"✅ 시장 맥락: {market_context.get('market_trend', 'N/A').upper()} (심리: {market_context.get('market_sentiment', 'N/A')})")
+    except Exception as e:
+        print(f"⚠️ 시장 맥락 분석 실패: {str(e)}")
+        market_context = {
+            "market_trend": "neutral",
+            "market_sentiment": "neutral",
+            "volatility_level": "normal",
+            "risk_level": "moderate"
+        }
+
     # 3. 기술적 지표 계산
     indicators = calculate_all_indicators(ohlcv_data, include_advanced=True)
 
@@ -1265,8 +1302,8 @@ async def generate_report_internal(symbol: str, symbol_name: str) -> Dict[str, A
             short_selling=short_selling,
             program_trading=program_trading,
             institutional_flow=institutional_flow,
-            sector_relative={},
-            market_context={}
+            sector_relative=sector_relative,
+            market_context=market_context
         )
     else:
         ai_result = await analyze_stock(symbol, symbol_name, indicators, news_data)
