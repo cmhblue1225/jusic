@@ -5,6 +5,7 @@ PDF Report Generator
 from io import BytesIO
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import os
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
@@ -24,6 +25,28 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.patches import Rectangle
 import numpy as np
+
+# 한글 폰트 등록
+FONTS_DIR = os.path.join(os.path.dirname(__file__), 'fonts')
+try:
+    pdfmetrics.registerFont(TTFont('NotoSansKR', os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')))
+    pdfmetrics.registerFont(TTFont('NotoSansKR-Bold', os.path.join(FONTS_DIR, 'NotoSansKR-Bold.ttf')))
+    print("✅ 한글 폰트 등록 완료 (NotoSansKR)")
+except Exception as e:
+    print(f"⚠️ 한글 폰트 등록 실패: {e}")
+    print("   → Helvetica 폰트로 대체됩니다 (한글이 깨질 수 있음)")
+
+# matplotlib 한글 폰트 설정
+try:
+    import matplotlib.font_manager as fm
+    font_path = os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')
+    font_prop = fm.FontProperties(fname=font_path)
+    plt.rcParams['font.family'] = font_prop.get_name()
+    plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
+    print(f"✅ matplotlib 한글 폰트 설정 완료: {font_prop.get_name()}")
+except Exception as e:
+    print(f"⚠️ matplotlib 한글 폰트 설정 실패: {e}")
+    print("   → 차트 한글이 깨질 수 있음")
 
 
 class StockReportPDF:
@@ -62,7 +85,7 @@ class StockReportPDF:
             textColor=colors.HexColor('#2563EB'),
             spaceAfter=30,
             alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
+            fontName='NotoSansKR-Bold'
         ))
 
         # 소제목 스타일
@@ -72,7 +95,7 @@ class StockReportPDF:
             fontSize=16,
             textColor=colors.HexColor('#1F2937'),
             spaceAfter=12,
-            fontName='Helvetica-Bold'
+            fontName='NotoSansKR-Bold'
         ))
 
         # 본문 스타일
@@ -82,7 +105,8 @@ class StockReportPDF:
             fontSize=11,
             leading=16,
             textColor=colors.HexColor('#374151'),
-            alignment=TA_JUSTIFY
+            alignment=TA_JUSTIFY,
+            fontName='NotoSansKR'
         ))
 
         # 강조 텍스트
