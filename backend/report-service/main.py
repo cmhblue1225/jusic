@@ -433,6 +433,24 @@ async def health():
     }
 
 
+@app.get("/api/cache/stats")
+async def get_cache_statistics():
+    """
+    Redis 캐시 통계 조회
+
+    Returns:
+        {
+            "hits": 캐시 HIT 횟수,
+            "misses": 캐시 MISS 횟수,
+            "errors": 캐시 에러 횟수,
+            "total_requests": 총 요청 수,
+            "hit_rate_percent": HIT 비율 (%)
+        }
+    """
+    from cache import get_cache_stats
+    return get_cache_stats()
+
+
 @app.options("/api/reports/generate")
 async def options_generate_report():
     """CORS preflight 요청 처리"""

@@ -32,9 +32,64 @@ def get_redis_client():
 MARKET_OPEN_TIME = time(9, 0)    # 09:00
 MARKET_CLOSE_TIME = time(15, 30) # 15:30
 
+# 캐시 통계 (메모리 기반)
+cache_stats = {
+    "hits": 0,
+    "misses": 0,
+    "errors": 0
+}
+
+def get_cache_stats() -> Dict[str, Any]:
+    """
+    캐시 통계 조회
+
+    Returns:
+        Dict: HIT/MISS 비율, 총 요청 수 등
+    """
+    total = cache_stats["hits"] + cache_stats["misses"]
+    hit_rate = (cache_stats["hits"] / total * 100) if total > 0 else 0
+
+    return {
+        "hits": cache_stats["hits"],
+        "misses": cache_stats["misses"],
+        "errors": cache_stats["errors"],
+        "total_requests": total,
+        "hit_rate_percent": round(hit_rate, 2)
+    }
+
+def get_next_market_open(current_time: datetime) -> datetime:
+    """
+    다음 장 시작 시간 계산 (주말/공휴일 고려)
+
+    Args:
+        current_time: 현재 시간
+
+    Returns:
+        datetime: 다음 장 시작 시간
+
+    Logic:
+        - 평일 15:30 이후 → 다음 평일 09:00
+        - 토요일/일요일 → 월요일 09:00
+        - 공휴일은 수동 처리 (향후 확장)
+    """
+    next_open = current_time
+
+    # 시간만 09:00으로 설정하고 다음 날로 이동
+    next_open = next_open.replace(hour=9, minute=0, second=0, microsecond=0)
+
+    # 현재 시간이 장 마감 전이면 오늘, 이후면 내일부터 시작
+    if current_time.time() >= MARKET_CLOSE_TIME or current_time.time() < MARKET_OPEN_TIME:
+        next_open += timedelta(days=1)
+
+    # 주말 처리: 토요일(5) → 월요일(0), 일요일(6) → 월요일(0)
+    while next_open.weekday() >= 5:  # 5=토요일, 6=일요일
+        next_open += timedelta(days=1)
+
+    return next_open
+
 def calculate_ttl(generation_time: datetime = None) -> int:
     """
-    장 마감 시간 기준 캐시 TTL 계산
+    장 마감 시간 기준 캐시 TTL 계산 (주말/공휴일 고려)
 
     Args:
         generation_time: 레포트 생성 시간 (기본값: 현재 시간)
@@ -43,8 +98,9 @@ def calculate_ttl(generation_time: datetime = None) -> int:
         int: TTL (초 단위)
 
     Logic:
-        - 장 마감(15:30) 후 생성 → 다음날 09:00까지 유효
+        - 장 마감(15:30) 후 생성 → 다음 거래일 09:00까지 유효
         - 장중 생성 → 당일 15:30까지 유효
+        - 주말/공휴일 고려하여 다음 거래일까지 연장
         - 최소 TTL: 30분 (1800초)
     """
     if generation_time is None:
@@ -52,22 +108,16 @@ def calculate_ttl(generation_time: datetime = None) -> int:
 
     current_time = generation_time.time()
 
-    # 장 마감 후 (15:30 ~ 23:59)
-    if current_time >= MARKET_CLOSE_TIME:
-        # 다음날 09:00까지
-        tomorrow = generation_time.date() + timedelta(days=1)
-        target_time = datetime.combine(tomorrow, MARKET_OPEN_TIME)
-        ttl = int((target_time - generation_time).total_seconds())
+    # 장 마감 후 (15:30 ~ 23:59) 또는 장 시작 전 (00:00 ~ 08:59)
+    if current_time >= MARKET_CLOSE_TIME or current_time < MARKET_OPEN_TIME:
+        # 다음 거래일 09:00까지 (주말 자동 건너뜀)
+        next_open = get_next_market_open(generation_time)
+        ttl = int((next_open - generation_time).total_seconds())
 
-    # 장중 (09:00 ~ 15:29) 또는 장 시작 전 (00:00 ~ 08:59)
+    # 장중 (09:00 ~ 15:29)
     else:
-        if current_time < MARKET_OPEN_TIME:
-            # 장 시작 전: 당일 15:30까지
-            target_time = datetime.combine(generation_time.date(), MARKET_CLOSE_TIME)
-        else:
-            # 장중: 당일 15:30까지
-            target_time = datetime.combine(generation_time.date(), MARKET_CLOSE_TIME)
-
+        # 당일 15:30까지
+        target_time = datetime.combine(generation_time.date(), MARKET_CLOSE_TIME)
         ttl = int((target_time - generation_time).total_seconds())
 
     # 최소 TTL: 30분 (1800초)
@@ -108,13 +158,16 @@ def get_cached_report(symbol: str, report_date: str) -> Optional[Dict[str, Any]]
         cached_data = client.get(cache_key)
 
         if cached_data:
+            cache_stats["hits"] += 1
             print(f"✅ 캐시 HIT: {cache_key}")
             return json.loads(cached_data)
         else:
+            cache_stats["misses"] += 1
             print(f"❌ 캐시 MISS: {cache_key}")
             return None
 
     except Exception as e:
+        cache_stats["errors"] += 1
         print(f"⚠️ Redis 조회 오류: {str(e)}")
         return None
 
@@ -149,6 +202,7 @@ def set_cached_report(symbol: str, report_date: str, report_data: Dict[str, Any]
         return True
 
     except Exception as e:
+        cache_stats["errors"] += 1
         print(f"⚠️ Redis 저장 오류: {str(e)}")
         return False
 
@@ -180,5 +234,6 @@ def delete_cached_report(symbol: str, report_date: str) -> bool:
             return False
 
     except Exception as e:
+        cache_stats["errors"] += 1
         print(f"⚠️ Redis 삭제 오류: {str(e)}")
         return False
