@@ -28,6 +28,29 @@ print("=" * 60)
 load_dotenv()
 print("✅ .env 로드 완료")
 
+# Sentry 에러 추적 초기화
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        traces_sample_rate=0.1,  # 10% 성능 추적 (비용 절감)
+        profiles_sample_rate=0.1,  # 10% 프로파일링
+        integrations=[
+            FastApiIntegration(),  # FastAPI 자동 추적
+        ],
+        # 에러 필터링 (중복 에러 최소화)
+        before_send=lambda event, hint: event if event.get("level") not in ["debug", "info"] else None,
+    )
+    print(f"✅ Sentry 초기화 완료 (환경: {ENVIRONMENT})")
+else:
+    print("⚠️  SENTRY_DSN 환경 변수 없음 - Sentry 비활성화")
+
 # 로컬 모듈 임포트 (에러 발생 시 상세 로그)
 try:
     print("📦 모듈 임포트 시작...")
