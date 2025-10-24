@@ -155,3 +155,90 @@ html.high-contrast .btn {
 .price-unchanged {
   color: rgb(75 85 99);
 }
+
+/* ========== 접근성 개선 ========== */
+
+/* 스크린 리더 전용 텍스트 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* 키보드 포커스 시각화 (모든 인터랙티브 요소) */
+*:focus-visible {
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* 버튼 포커스 스타일 */
+.btn:focus-visible {
+  outline: 3px solid rgb(59 130 246);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.btn-primary:focus-visible {
+  outline-color: rgb(37 99 235);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3);
+}
+
+.btn-danger:focus-visible {
+  outline-color: rgb(220 38 38);
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.3);
+}
+
+/* 링크 포커스 스타일 */
+a:focus-visible {
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+  text-decoration: underline;
+}
+
+/* 입력 필드 포커스 개선 */
+.input:focus-visible {
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 0;
+  border-color: rgb(59 130 246);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 고대비 모드 포커스 */
+html.high-contrast *:focus-visible {
+  outline: 3px solid #ffff00 !important;
+  outline-offset: 3px;
+}
+
+/* 포커스 표시 생략 (마우스 클릭 시) */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip to main content 링크 (접근성) */
+.skip-to-main {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+}
+
+.skip-to-main:focus {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  background-color: rgb(37 99 235);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  z-index: 9999;
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 2px;
+}

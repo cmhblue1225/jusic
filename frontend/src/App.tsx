@@ -116,6 +116,11 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* 접근성: 메인 콘텐츠로 건너뛰기 링크 */}
+      <a href="#main-content" className="skip-to-main">
+        메인 콘텐츠로 건너뛰기
+      </a>
+
       <Suspense
         fallback={
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">

@@ -130,12 +130,26 @@ export default function StockAutocomplete({
         placeholder={placeholder}
         autoFocus={autoFocus}
         className={`input ${className}`}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showResults && results.length > 0}
+        aria-controls="stock-autocomplete-listbox"
+        aria-activedescendant={
+          selectedIndex >= 0 ? `stock-option-${selectedIndex}` : undefined
+        }
+        aria-label="종목 검색"
+        aria-busy={loading}
       />
 
       {/* 로딩 인디케이터 */}
       {loading && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+        <div
+          className="absolute right-3 top-1/2 transform -translate-y-1/2"
+          role="status"
+          aria-live="polite"
+        >
           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+          <span className="sr-only">검색 중...</span>
         </div>
       )}
 
@@ -143,15 +157,23 @@ export default function StockAutocomplete({
       {showResults && results.length > 0 && (
         <div
           ref={resultsRef}
+          id="stock-autocomplete-listbox"
+          role="listbox"
+          aria-label="종목 검색 결과"
           className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto"
         >
           {results.map((stock, index) => (
             <button
               key={stock.symbol}
+              id={`stock-option-${index}`}
+              role="option"
+              aria-selected={index === selectedIndex}
               onClick={() => handleSelect(stock)}
+              onMouseEnter={() => setSelectedIndex(index)}
               className={`
                 w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors
                 flex justify-between items-center
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset
                 ${index === selectedIndex ? 'bg-blue-50' : ''}
                 ${index === 0 ? 'rounded-t-lg' : ''}
                 ${index === results.length - 1 ? 'rounded-b-lg' : 'border-b border-gray-100'}
@@ -173,6 +195,8 @@ export default function StockAutocomplete({
       {showResults && !loading && query && results.length === 0 && (
         <div
           ref={resultsRef}
+          role="status"
+          aria-live="polite"
           className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500"
         >
           검색 결과가 없습니다.
