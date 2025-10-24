@@ -46,6 +46,8 @@ app = FastAPI(
 # CORS 설정
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3001",  # Admin Dashboard (개발)
+    "http://localhost:3005",  # Admin Dashboard (개발 - 대체 포트)
     "http://localhost:5173",
     "https://admin-dashboard-production.up.railway.app",
     "https://admin.jusik.minhyuk.kr",

@@ -197,6 +197,121 @@ async def get_aggregate_health(admin: dict = AdminUser):
         raise HTTPException(status_code=500, detail=f"헬스체크 집계 실패: {str(e)}")
 
 
+# 🔥 뉴스 크롤러 스케줄러 제어 엔드포인트 (/{service_name} 보다 먼저 선언)
+@router.post("/news-crawler/pause")
+async def pause_news_crawler(admin: dict = AdminUser):
+    """
+    뉴스 크롤러 스케줄러 일시중지
+
+    Returns:
+        dict: 일시중지 결과
+    """
+    try:
+        news_crawler_url = RAILWAY_SERVICES["news-crawler"]["url"]
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(f"{news_crawler_url}/admin/scheduler/pause")
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"News crawler pause failed: {response.text}"
+                )
+
+            result = response.json()
+
+        # 활동 로그 기록
+        supabase.table("admin_activity_logs").insert({
+            "admin_id": admin["id"],
+            "action": "news_crawler_pause",
+            "target_type": "service",
+            "target_id": "news-crawler",
+            "details": result
+        }).execute()
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 뉴스 크롤러 일시중지 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"뉴스 크롤러 일시중지 실패: {str(e)}")
+
+
+@router.post("/news-crawler/resume")
+async def resume_news_crawler(admin: dict = AdminUser):
+    """
+    뉴스 크롤러 스케줄러 재개
+
+    Returns:
+        dict: 재개 결과
+    """
+    try:
+        news_crawler_url = RAILWAY_SERVICES["news-crawler"]["url"]
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(f"{news_crawler_url}/admin/scheduler/resume")
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"News crawler resume failed: {response.text}"
+                )
+
+            result = response.json()
+
+        # 활동 로그 기록
+        supabase.table("admin_activity_logs").insert({
+            "admin_id": admin["id"],
+            "action": "news_crawler_resume",
+            "target_type": "service",
+            "target_id": "news-crawler",
+            "details": result
+        }).execute()
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 뉴스 크롤러 재개 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"뉴스 크롤러 재개 실패: {str(e)}")
+
+
+@router.get("/news-crawler/scheduler-status")
+async def get_news_crawler_scheduler_status(admin: dict = AdminUser):
+    """
+    뉴스 크롤러 스케줄러 상태 조회
+
+    Returns:
+        dict: 스케줄러 상태 정보
+    """
+    try:
+        news_crawler_url = RAILWAY_SERVICES["news-crawler"]["url"]
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{news_crawler_url}/admin/scheduler/status")
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to get scheduler status: {response.text}"
+                )
+
+            result = response.json()
+
+        # 활동 로그 기록 (조회이므로 필요시에만)
+        # supabase.table("admin_activity_logs").insert({...}).execute()
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 스케줄러 상태 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"스케줄러 상태 조회 실패: {str(e)}")
+
+
 @router.get("/{service_name}", response_model=ServiceDetail)
 async def get_service_detail(service_name: str, admin: dict = AdminUser):
     """

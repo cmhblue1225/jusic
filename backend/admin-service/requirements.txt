@@ -5,7 +5,7 @@ pydantic==2.10.3
 pydantic-settings==2.6.1
 
 # HTTP 클라이언트
-httpx==0.28.1
+httpx<0.28,>=0.26
 
 # Supabase 클라이언트
 supabase==2.10.0

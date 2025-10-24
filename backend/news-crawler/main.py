@@ -5,7 +5,7 @@
 🔥 Phase 2.1: Google News RSS 추가
 """
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 from dotenv import load_dotenv
@@ -48,6 +48,9 @@ naver_discussion = NaverDiscussionCrawler()
 
 # 🔥 Phase 2.3: DART 전자공시 크롤러 초기화
 dart_crawler = DartDisclosureCrawler()
+
+# 🔥 스케줄러 전역 변수 (관리자 제어용)
+scheduler: BackgroundScheduler = None
 
 
 async def analyze_news_with_ai(title: str, content: str, symbols: list, url: str) -> dict:
@@ -362,6 +365,7 @@ def crawl_news_sync():
 @app.on_event("startup")
 async def startup_event():
     """앱 시작 시 스케줄러 실행"""
+    global scheduler
     scheduler = BackgroundScheduler()
     # 5분마다 뉴스 크롤링
     scheduler.add_job(crawl_news_sync, 'interval', minutes=5)
@@ -384,6 +388,74 @@ async def trigger_crawl():
     """수동 크롤링 트리거"""
     await crawl_news()
     return {"message": "Crawling triggered"}
+
+
+# 🔥 관리자 제어 엔드포인트
+@app.post("/admin/scheduler/pause")
+async def pause_scheduler():
+    """스케줄러 일시중지 (관리자 전용)"""
+    global scheduler
+    if scheduler is None:
+        raise HTTPException(status_code=500, detail="Scheduler not initialized")
+
+    try:
+        scheduler.pause()
+        return {
+            "status": "paused",
+            "message": "News crawler scheduler has been paused"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to pause scheduler: {str(e)}")
+
+
+@app.post("/admin/scheduler/resume")
+async def resume_scheduler():
+    """스케줄러 재개 (관리자 전용)"""
+    global scheduler
+    if scheduler is None:
+        raise HTTPException(status_code=500, detail="Scheduler not initialized")
+
+    try:
+        scheduler.resume()
+        return {
+            "status": "running",
+            "message": "News crawler scheduler has been resumed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resume scheduler: {str(e)}")
+
+
+@app.get("/admin/scheduler/status")
+async def get_scheduler_status():
+    """스케줄러 상태 조회"""
+    global scheduler
+    if scheduler is None:
+        return {
+            "status": "not_initialized",
+            "state": None,
+            "jobs": []
+        }
+
+    # APScheduler 상태: 0=stopped, 1=running, 2=paused
+    state_map = {0: "stopped", 1: "running", 2: "paused"}
+    state_code = scheduler.state
+    status = state_map.get(state_code, "unknown")
+
+    # 등록된 job 목록
+    jobs = []
+    for job in scheduler.get_jobs():
+        jobs.append({
+            "id": job.id,
+            "name": job.name,
+            "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None
+        })
+
+    return {
+        "status": status,
+        "state": state_code,
+        "jobs": jobs,
+        "ai_analysis_enabled": AI_ANALYSIS_ENABLED
+    }
 
 
 if __name__ == "__main__":

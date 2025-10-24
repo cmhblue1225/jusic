@@ -6,14 +6,23 @@ from fastapi import Header, HTTPException, Depends
 from typing import Optional
 import os
 from supabase import create_client, Client
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 # Supabase 클라이언트 초기화
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    raise RuntimeError("SUPABASE_URL 또는 SUPABASE_SERVICE_KEY 환경 변수가 설정되지 않았습니다.")
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not SUPABASE_ANON_KEY:
+    raise RuntimeError("SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_ANON_KEY 환경 변수가 설정되지 않았습니다.")
 
+# JWT 검증용 클라이언트 (ANON_KEY 사용)
+supabase_auth: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# 데이터 조회용 클라이언트 (SERVICE_KEY 사용 - RLS 우회)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 
@@ -39,8 +48,8 @@ async def verify_admin_token(authorization: Optional[str] = Header(None)) -> dic
     token = authorization.replace("Bearer ", "")
 
     try:
-        # Supabase JWT 검증
-        user_response = supabase.auth.get_user(token)
+        # Supabase JWT 검증 (ANON_KEY 클라이언트 사용)
+        user_response = supabase_auth.auth.get_user(token)
 
         if not user_response or not user_response.user:
             raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")

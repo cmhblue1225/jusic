@@ -52,12 +52,17 @@ class AdminApi {
   }
 
   private getToken(): string | null {
-    // localStorage에서 Supabase 세션 가져오기
-    const session = localStorage.getItem('supabase.auth.token');
-    if (session) {
+    // Supabase 세션에서 JWT 토큰 가져오기
+    // Supabase v2는 sb-{project-ref}-auth-token 키를 사용
+    const keys = Object.keys(localStorage).filter(key => key.startsWith('sb-') && key.endsWith('-auth-token'));
+
+    if (keys.length > 0) {
       try {
-        const parsed = JSON.parse(session);
-        return parsed.currentSession?.access_token || null;
+        const session = localStorage.getItem(keys[0]);
+        if (session) {
+          const parsed = JSON.parse(session);
+          return parsed.access_token || null;
+        }
       } catch {
         return null;
       }
@@ -198,6 +203,51 @@ class AdminApi {
     const { data } = await this.client.get('/api/admin/logs/export', {
       params: { hours, format },
     });
+    return data;
+  }
+
+  // 뉴스 크롤러 제어 API
+  async pauseNewsCrawler(): Promise<{ status: string; message: string }> {
+    const { data } = await this.client.post('/api/admin/services/news-crawler/pause');
+    return data;
+  }
+
+  async resumeNewsCrawler(): Promise<{ status: string; message: string }> {
+    const { data } = await this.client.post('/api/admin/services/news-crawler/resume');
+    return data;
+  }
+
+  async getNewsCrawlerStatus(): Promise<{
+    status: string;
+    state: number;
+    jobs: Array<{ id: string; name: string; next_run_time: string | null }>;
+    ai_analysis_enabled: boolean;
+  }> {
+    const { data } = await this.client.get('/api/admin/services/news-crawler/scheduler-status');
+    return data;
+  }
+
+  // 캐시 관리 API
+  async getCachedReports(): Promise<{
+    cached_reports: Array<{
+      symbol: string;
+      report_date: string;
+      cache_key: string;
+      ttl_seconds: number;
+      ttl_minutes: number;
+    }>;
+    total: number;
+  }> {
+    const { data } = await this.client.get('/api/admin/database/cache/reports');
+    return data;
+  }
+
+  async deleteCachedReport(symbol: string, reportDate: string): Promise<{
+    message: string;
+    symbol: string;
+    report_date: string;
+  }> {
+    const { data } = await this.client.delete(`/api/admin/database/cache/reports/${symbol}/${reportDate}`);
     return data;
   }
 }

@@ -1,9 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { Database as DatabaseIcon, Table, Activity } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Database as DatabaseIcon, Table, Activity, Trash2, Clock } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import type { TableStatistics } from '@/types';
+import toast from 'react-hot-toast';
 
 export default function Database() {
+  const queryClient = useQueryClient();
+
   const { data: tables, isLoading } = useQuery({
     queryKey: ['database-tables'],
     queryFn: () => adminApi.getDatabaseTables(),
@@ -18,6 +21,26 @@ export default function Database() {
   const { data: dbStats } = useQuery({
     queryKey: ['database-statistics'],
     queryFn: () => adminApi.getDatabaseStatistics(),
+  });
+
+  // 캐시 목록 조회
+  const { data: cacheData } = useQuery({
+    queryKey: ['cached-reports'],
+    queryFn: () => adminApi.getCachedReports(),
+    refetchInterval: 15000, // 15초마다 갱신
+  });
+
+  // 캐시 삭제
+  const deleteCacheMutation = useMutation({
+    mutationFn: ({ symbol, reportDate }: { symbol: string; reportDate: string }) =>
+      adminApi.deleteCachedReport(symbol, reportDate),
+    onSuccess: (data) => {
+      toast.success(data.message || '캐시가 삭제되었습니다');
+      queryClient.invalidateQueries({ queryKey: ['cached-reports'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || '캐시 삭제 실패');
+    },
   });
 
   const formatNumber = (num: number) => {
@@ -151,6 +174,78 @@ export default function Database() {
           <div className="text-center py-12">
             <DatabaseIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">테이블 정보를 불러올 수 없습니다</p>
+          </div>
+        )}
+      </div>
+
+      {/* 캐시 관리 섹션 */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">레포트 캐시 관리</h2>
+            <p className="text-sm text-gray-600 mt-1">Redis에 캐시된 종목 레포트 목록</p>
+          </div>
+          {cacheData && (
+            <span className="badge badge-info">총 {cacheData.total}개 캐시</span>
+          )}
+        </div>
+
+        {cacheData && cacheData.cached_reports && cacheData.cached_reports.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>종목코드</th>
+                  <th>레포트 날짜</th>
+                  <th className="text-right">남은 시간 (TTL)</th>
+                  <th className="text-right">액션</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cacheData.cached_reports.map((cache) => (
+                  <tr key={cache.cache_key}>
+                    <td className="font-mono font-semibold text-gray-900">{cache.symbol}</td>
+                    <td className="text-gray-700">{cache.report_date}</td>
+                    <td className="text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-600">
+                          {cache.ttl_minutes > 0
+                            ? `${cache.ttl_minutes}분 ${cache.ttl_seconds % 60}초`
+                            : '만료됨'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `${cache.symbol} (${cache.report_date}) 캐시를 삭제하시겠습니까?`
+                            )
+                          ) {
+                            deleteCacheMutation.mutate({
+                              symbol: cache.symbol,
+                              reportDate: cache.report_date,
+                            });
+                          }
+                        }}
+                        disabled={deleteCacheMutation.isPending}
+                        className="btn btn-sm bg-red-600 text-white hover:bg-red-700 flex items-center space-x-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>{deleteCacheMutation.isPending ? '삭제 중...' : '삭제'}</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <DatabaseIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">캐시된 레포트가 없습니다</p>
           </div>
         )}
       </div>

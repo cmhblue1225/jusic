@@ -1,13 +1,47 @@
-import { useQuery } from '@tanstack/react-query';
-import { Server, RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Server, RefreshCw, CheckCircle, XCircle, AlertTriangle, Pause, Play } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import type { ServiceStatus } from '@/types';
+import toast from 'react-hot-toast';
 
 export default function Services() {
+  const queryClient = useQueryClient();
+
   const { data: servicesHealth, refetch, isLoading } = useQuery({
     queryKey: ['services-health'],
     queryFn: () => adminApi.getServicesHealth(),
     refetchInterval: 30000, // 30초마다 자동 갱신
+  });
+
+  // 뉴스 크롤러 스케줄러 상태 조회
+  const { data: crawlerStatus } = useQuery({
+    queryKey: ['news-crawler-status'],
+    queryFn: () => adminApi.getNewsCrawlerStatus(),
+    refetchInterval: 10000, // 10초마다 갱신
+  });
+
+  // 일시중지
+  const pauseMutation = useMutation({
+    mutationFn: () => adminApi.pauseNewsCrawler(),
+    onSuccess: (data) => {
+      toast.success(data.message || '뉴스 크롤러가 일시중지되었습니다');
+      queryClient.invalidateQueries({ queryKey: ['news-crawler-status'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || '일시중지 실패');
+    },
+  });
+
+  // 재개
+  const resumeMutation = useMutation({
+    mutationFn: () => adminApi.resumeNewsCrawler(),
+    onSuccess: (data) => {
+      toast.success(data.message || '뉴스 크롤러가 재개되었습니다');
+      queryClient.invalidateQueries({ queryKey: ['news-crawler-status'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || '재개 실패');
+    },
   });
 
   const getStatusIcon = (status: string) => {
@@ -154,6 +188,81 @@ export default function Services() {
                       <p className="text-xs text-gray-500">URL</p>
                       <p className="text-sm text-gray-700 font-mono mt-1 break-all">{service.url}</p>
                     </div>
+
+                    {/* 뉴스 크롤러 제어 버튼 */}
+                    {service.name === 'news-crawler' && crawlerStatus && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">스케줄러 제어</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              상태:{' '}
+                              <span
+                                className={`font-medium ${
+                                  crawlerStatus.status === 'running'
+                                    ? 'text-green-600'
+                                    : crawlerStatus.status === 'paused'
+                                    ? 'text-yellow-600'
+                                    : 'text-gray-600'
+                                }`}
+                              >
+                                {crawlerStatus.status === 'running'
+                                  ? '실행 중'
+                                  : crawlerStatus.status === 'paused'
+                                  ? '일시중지됨'
+                                  : '정지됨'}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="flex space-x-2">
+                            {crawlerStatus.status === 'running' ? (
+                              <button
+                                onClick={() => pauseMutation.mutate()}
+                                disabled={pauseMutation.isPending}
+                                className="btn btn-sm flex items-center space-x-2 bg-yellow-600 text-white hover:bg-yellow-700"
+                              >
+                                <Pause className="w-4 h-4" />
+                                <span>{pauseMutation.isPending ? '일시중지 중...' : '일시중지'}</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => resumeMutation.mutate()}
+                                disabled={resumeMutation.isPending}
+                                className="btn btn-sm flex items-center space-x-2 bg-green-600 text-white hover:bg-green-700"
+                              >
+                                <Play className="w-4 h-4" />
+                                <span>{resumeMutation.isPending ? '재개 중...' : '재개'}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Job 정보 */}
+                        {crawlerStatus.jobs && crawlerStatus.jobs.length > 0 && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs font-medium text-gray-700 mb-2">실행 스케줄</p>
+                            {crawlerStatus.jobs.map((job) => (
+                              <div key={job.id} className="text-xs text-gray-600">
+                                <p>
+                                  <strong>{job.name}</strong>
+                                </p>
+                                {job.next_run_time && (
+                                  <p className="text-gray-500 mt-1">
+                                    다음 실행:{' '}
+                                    {new Date(job.next_run_time).toLocaleString('ko-KR', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

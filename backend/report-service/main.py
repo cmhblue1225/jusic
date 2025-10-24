@@ -451,6 +451,93 @@ async def get_cache_statistics():
     return get_cache_stats()
 
 
+# 🔥 캐시 관리 엔드포인트 (관리자 전용)
+@app.get("/api/cache/reports")
+async def list_cached_reports():
+    """
+    캐시된 레포트 목록 조회
+
+    Returns:
+        List[Dict]: 캐시된 레포트 키 목록 (symbol, report_date, ttl)
+    """
+    try:
+        from cache import get_redis_client
+
+        client = get_redis_client()
+        if client is None:
+            return {"cached_reports": [], "message": "Redis not available"}
+
+        # report:* 패턴으로 캐시 키 조회
+        keys = client.keys("report:*")
+
+        cached_reports = []
+        for key in keys:
+            # 키 파싱: report:{symbol}:{report_date}
+            parts = key.split(":")
+            if len(parts) == 3:
+                symbol = parts[1]
+                report_date = parts[2]
+
+                # TTL 조회 (초 단위)
+                ttl_seconds = client.ttl(key)
+
+                cached_reports.append({
+                    "symbol": symbol,
+                    "report_date": report_date,
+                    "cache_key": key,
+                    "ttl_seconds": ttl_seconds,
+                    "ttl_minutes": ttl_seconds // 60 if ttl_seconds > 0 else 0
+                })
+
+        # 종목코드 순으로 정렬
+        cached_reports.sort(key=lambda x: (x["symbol"], x["report_date"]))
+
+        return {
+            "cached_reports": cached_reports,
+            "total": len(cached_reports)
+        }
+
+    except Exception as e:
+        print(f"❌ 캐시 목록 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"캐시 목록 조회 실패: {str(e)}")
+
+
+@app.delete("/api/cache/reports/{symbol}/{report_date}")
+async def delete_cached_report_endpoint(symbol: str, report_date: str):
+    """
+    특정 종목 레포트 캐시 삭제
+
+    Args:
+        symbol: 종목 코드 (예: 005930)
+        report_date: 레포트 날짜 (YYYY-MM-DD)
+
+    Returns:
+        Dict: 삭제 결과
+    """
+    try:
+        from cache import delete_cached_report
+
+        success = delete_cached_report(symbol, report_date)
+
+        if success:
+            return {
+                "message": f"캐시 삭제 성공: {symbol} ({report_date})",
+                "symbol": symbol,
+                "report_date": report_date
+            }
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"캐시를 찾을 수 없거나 삭제 실패: {symbol} ({report_date})"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 캐시 삭제 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"캐시 삭제 실패: {str(e)}")
+
+
 @app.options("/api/reports/generate")
 async def options_generate_report():
     """CORS preflight 요청 처리"""

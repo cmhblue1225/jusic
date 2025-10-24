@@ -4,6 +4,7 @@
 - 커스텀 SQL 쿼리 실행
 - 데이터베이스 헬스체크
 - 백업 및 복원 (향후 구현)
+- 레포트 캐시 관리
 """
 from fastapi import APIRouter, HTTPException, Body
 from pydantic import BaseModel
@@ -11,9 +12,14 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from middleware.auth import AdminUser
 from services.supabase_client import get_supabase
+import httpx
+import os
 
 router = APIRouter()
 supabase = get_supabase()
+
+# Report Service URL
+REPORT_SERVICE_URL = os.getenv("REPORT_SERVICE_URL", "https://report-service-production.up.railway.app")
 
 # 주요 테이블 목록
 MAIN_TABLES = [
@@ -433,3 +439,77 @@ async def get_database_statistics(admin: dict = AdminUser):
     except Exception as e:
         print(f"❌ 데이터베이스 통계 조회 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=f"데이터베이스 통계 조회 실패: {str(e)}")
+
+
+# 🔥 레포트 캐시 관리 엔드포인트
+@router.get("/cache/reports")
+async def get_cached_reports(admin: dict = AdminUser):
+    """
+    캐시된 레포트 목록 조회
+
+    Returns:
+        List[Dict]: 캐시된 레포트 정보
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{REPORT_SERVICE_URL}/api/cache/reports")
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to fetch cached reports: {response.text}"
+                )
+
+            result = response.json()
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 캐시 목록 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"캐시 목록 조회 실패: {str(e)}")
+
+
+@router.delete("/cache/reports/{symbol}/{report_date}")
+async def delete_cached_report(symbol: str, report_date: str, admin: dict = AdminUser):
+    """
+    특정 레포트 캐시 삭제
+
+    Args:
+        symbol: 종목 코드
+        report_date: 레포트 날짜 (YYYY-MM-DD)
+
+    Returns:
+        Dict: 삭제 결과
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.delete(
+                f"{REPORT_SERVICE_URL}/api/cache/reports/{symbol}/{report_date}"
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to delete cached report: {response.text}"
+                )
+
+            result = response.json()
+
+        # 활동 로그 기록
+        supabase.table("admin_activity_logs").insert({
+            "admin_id": admin["id"],
+            "action": "cache_delete",
+            "target_type": "cache",
+            "target_id": f"{symbol}:{report_date}",
+            "details": result
+        }).execute()
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ 캐시 삭제 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"캐시 삭제 실패: {str(e)}")
