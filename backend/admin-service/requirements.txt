@@ -1,0 +1,23 @@
+# FastAPI 프레임워크
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# HTTP 클라이언트
+httpx==0.28.1
+
+# Supabase 클라이언트
+supabase==2.10.0
+
+# 환경 변수 관리
+python-dotenv==1.0.1
+
+# CORS 미들웨어
+python-multipart==0.0.20
+
+# Sentry 에러 추적
+sentry-sdk[fastapi]==2.19.2
+
+# 유틸리티
+python-jose[cryptography]==3.3.0  # JWT 검증

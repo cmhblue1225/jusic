@@ -44,7 +44,19 @@ backend/
 ├── stream-service/      # Node.js - 실시간 주가 스트리밍
 ├── news-crawler/        # Python - RSS/API 뉴스 크롤링
 ├── ai-service/          # Python FastAPI - AI 분석 엔진
-└── alert-service/       # Node.js - 알림 발송 시스템
+├── alert-service/       # Node.js - 알림 발송 시스템
+├── report-service/      # Python FastAPI - 종목 레포트 생성 (AI Ensemble)
+└── admin-service/       # Python FastAPI - 관리자 전용 API ✨ NEW
+```
+
+#### 관리자 대시보드 ✨ NEW
+```
+admin-dashboard/         # React 19 - 관리자 전용 프론트엔드
+├── 사용자 관리          # 사용자 정지/활성화/삭제
+├── 서비스 모니터링      # Railway 서비스 헬스 체크
+├── 메트릭 분석          # 시스템/비즈니스 메트릭
+├── 데이터베이스 관리    # 테이블 통계 및 SQL 쿼리
+└── 활동 로그            # 관리자 활동 감사
 ```
 
 **주요 기술**:
