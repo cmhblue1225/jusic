@@ -1,21 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { useAlertStore } from './stores/alertStore';
 import { useProfileStore } from './stores/profileStore';
 import { monitoringService } from './services/monitoring';
 import ToastContainer from './components/ToastContainer';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Eager Loading (로그인 전 필요)
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
-import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
-import Portfolio from './pages/Portfolio';
-import Watchlist from './pages/Watchlist';
-import Statistics from './pages/Statistics';
-import News from './pages/News';
-import Report from './pages/Report';
-import Bookmarks from './pages/Bookmarks';
-import ProtectedRoute from './components/ProtectedRoute';
+
+// Lazy Loading (로그인 후 필요)
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Portfolio = lazy(() => import('./pages/Portfolio'));
+const Watchlist = lazy(() => import('./pages/Watchlist'));
+const Statistics = lazy(() => import('./pages/Statistics'));
+const News = lazy(() => import('./pages/News'));
+const Report = lazy(() => import('./pages/Report'));
+const Bookmarks = lazy(() => import('./pages/Bookmarks'));
 
 function App() {
   const { initialize, user } = useAuthStore();
@@ -112,7 +116,17 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-xl text-gray-600">로딩 중...</p>
+            </div>
+          </div>
+        }
+      >
+        <Routes>
         {/* 공개 라우트 */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
@@ -185,7 +199,8 @@ function App() {
 
         {/* 기본 리다이렉트 */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
+        </Routes>
+      </Suspense>
 
       {/* 전역 Toast 알림 컨테이너 (모든 페이지에서 표시) */}
       <ToastContainer />
