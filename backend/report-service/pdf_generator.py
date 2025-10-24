@@ -234,7 +234,7 @@ class StockReportPDF:
             ('BACKGROUND', (1, 0), (1, -1), colors.white),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1F2937')),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (0, -1), FONT_REGULAR),
+            ('FONTNAME', (0, 0), (-1, -1), FONT_REGULAR),  # 🔥 모든 셀에 폰트 적용
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#DBEAFE')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -389,7 +389,8 @@ class StockReportPDF:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD),
+            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD),  # 헤더 행 Bold
+            ('FONTNAME', (0, 1), (-1, -1), FONT_REGULAR),  # 🔥 데이터 행 Regular
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#DBEAFE')),
@@ -442,7 +443,8 @@ class StockReportPDF:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10B981')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD),
+            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD),  # 헤더 행 Bold
+            ('FONTNAME', (0, 1), (-1, -1), FONT_REGULAR),  # 🔥 데이터 행 Regular
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#D1FAE5')),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
@@ -510,7 +512,8 @@ class StockReportPDF:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F59E0B')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD),
+            ('FONTNAME', (0, 0), (-1, 0), FONT_BOLD),  # 헤더 행 Bold
+            ('FONTNAME', (0, 1), (-1, -1), FONT_REGULAR),  # 🔥 데이터 행 Regular
             ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#FDE68A')),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
