@@ -96,6 +96,39 @@ except Exception as e:
 class StockReportPDF:
     """종목 레포트 PDF 생성 클래스"""
 
+    # 영어-한글 용어 매핑 (시니어 친화적)
+    TRANSLATIONS = {
+        # 매매 신호
+        'buy': '매수',
+        'sell': '매도',
+        'hold': '보유',
+        'BUY': '매수',
+        'SELL': '매도',
+        'HOLD': '보유',
+
+        # 강도
+        'weak': '약함',
+        'moderate': '보통',
+        'strong': '강함',
+
+        # 진입 타이밍
+        'immediate': '즉시',
+        'gradual': '점진적',
+        'wait': '대기',
+
+        # 전망
+        'bullish': '상승',
+        'neutral': '중립',
+        'bearish': '하락',
+        'positive': '긍정적',
+        'negative': '부정적',
+
+        # 위험도
+        'low': '낮음',
+        'medium': '보통',
+        'high': '높음',
+    }
+
     def __init__(self, report_data: Dict[str, Any]):
         """
         Args:
@@ -118,6 +151,13 @@ class StockReportPDF:
 
         # PDF 요소 리스트
         self.story = []
+
+    def _translate(self, text: str) -> str:
+        """영어 용어를 한글로 변환"""
+        if not text or text == 'N/A':
+            return text
+        # 대소문자 구분 없이 매핑
+        return self.TRANSLATIONS.get(text, self.TRANSLATIONS.get(text.lower(), text))
 
     def _setup_custom_styles(self):
         """커스텀 스타일 설정 (parent 상속 없이 완전 독립형)"""
@@ -240,11 +280,11 @@ class StockReportPDF:
             ],
             [
                 Paragraph('투자 권고', summary_style),
-                Paragraph(self.data.get('recommendation', 'N/A'), summary_style)
+                Paragraph(self._translate(self.data.get('recommendation', 'N/A')), summary_style)  # 🔥 한글 변환
             ],
             [
                 Paragraph('위험도', summary_style),
-                Paragraph(self.data.get('risk_level', 'N/A'), summary_style)
+                Paragraph(self._translate(self.data.get('risk_level', 'N/A')), summary_style)  # 🔥 한글 변환
             ],
             [
                 Paragraph('평가 점수', summary_style),
@@ -504,10 +544,13 @@ class StockReportPDF:
                     target_price_val = strategy.get('target_price')
                     target_price_str = format_price(target_price_val) if target_price_val else 'N/A'
 
+                    # 전망 한글 변환
+                    outlook_translated = self._translate(strategy.get('outlook', 'N/A'))
+
                     strategy_text = f"""
                     <para>
                         <b>{label} ({strategy.get('timeframe', '')})</b><br/>
-                        전망: {strategy.get('outlook', 'N/A')}<br/>
+                        전망: {outlook_translated}<br/>
                         주요 요인: {strategy.get('key_factors', 'N/A')}<br/>
                         목표가: {target_price_str}
                     </para>
@@ -525,10 +568,10 @@ class StockReportPDF:
 
         signal_data = [
             ['항목', '값'],
-            ['매매 신호', signals.get('signal', 'N/A').upper()],
+            ['매매 신호', self._translate(signals.get('signal', 'N/A'))],  # 🔥 한글 변환 (BUY → 매수)
             ['신뢰도', f"{signals.get('confidence', 0)}%"],
-            ['강도', signals.get('strength', 'N/A')],
-            ['진입 타이밍', signals.get('entry_timing', 'N/A')],
+            ['강도', self._translate(signals.get('strength', 'N/A'))],  # 🔥 한글 변환 (moderate → 보통)
+            ['진입 타이밍', self._translate(signals.get('entry_timing', 'N/A'))],  # 🔥 한글 변환 (gradual → 점진적)
             ['포지션 크기', signals.get('position_size', 'N/A')],
         ]
 
@@ -549,9 +592,12 @@ class StockReportPDF:
         # 종합 위험도
         comp_risk = signals.get('comprehensive_risk', {})
         if comp_risk:
+            # 위험도 레벨 한글 변환
+            risk_level_translated = self._translate(comp_risk.get('risk_level', 'N/A'))
+
             risk_text = f"""
             <para>
-                <b>종합 위험도:</b> {comp_risk.get('risk_level', 'N/A')} ({comp_risk.get('risk_score', 0):.1f}점)<br/>
+                <b>종합 위험도:</b> {risk_level_translated} ({comp_risk.get('risk_score', 0):.1f}점)<br/>
                 <b>위험 요인:</b><br/>
                 {' / '.join(comp_risk.get('risk_factors', []))}
             </para>
