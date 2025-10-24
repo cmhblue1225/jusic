@@ -27,3 +27,9 @@ python-dateutil==2.9.0
 reportlab==4.0.7
 matplotlib==3.8.2
 pillow==10.1.0
+
+# Testing (개발 환경)
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+pytest-mock==3.14.0
