@@ -220,12 +220,36 @@ class StockReportPDF:
         self.story.append(Paragraph(price_text, self.styles['CustomBody']))
         self.story.append(Spacer(1, 2*cm))
 
-        # AI 분석 요약 박스
+        # AI 분석 요약 박스 (긴 텍스트는 Paragraph로 감싸서 자동 줄바꿈)
+        summary_style = ParagraphStyle(
+            name='SummaryCell',
+            fontName=FONT_REGULAR,
+            fontSize=10,
+            leading=14,
+            alignment=TA_LEFT,
+            leftIndent=0,
+            rightIndent=0,
+            spaceAfter=0,
+            spaceBefore=0
+        )
+
         summary_data = [
-            ['AI 분석 요약', self.data.get('summary', 'N/A')],
-            ['투자 권고', self.data.get('recommendation', 'N/A')],
-            ['위험도', self.data.get('risk_level', 'N/A')],
-            ['평가 점수', f"{self.data.get('evaluation_score', 0)}점"]
+            [
+                Paragraph('AI 분석 요약', summary_style),
+                Paragraph(self.data.get('summary', 'N/A'), summary_style)
+            ],
+            [
+                Paragraph('투자 권고', summary_style),
+                Paragraph(self.data.get('recommendation', 'N/A'), summary_style)
+            ],
+            [
+                Paragraph('위험도', summary_style),
+                Paragraph(self.data.get('risk_level', 'N/A'), summary_style)
+            ],
+            [
+                Paragraph('평가 점수', summary_style),
+                Paragraph(f"{self.data.get('evaluation_score', 0)}점", summary_style)
+            ]
         ]
 
         summary_table = Table(summary_data, colWidths=[4*cm, 10*cm])
@@ -234,12 +258,13 @@ class StockReportPDF:
             ('BACKGROUND', (1, 0), (1, -1), colors.white),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1F2937')),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), FONT_REGULAR),  # 🔥 모든 셀에 폰트 적용
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            # FONTNAME 제거: Paragraph 자체에 fontName 지정되어 있음
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#DBEAFE')),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # 🔥 MIDDLE → TOP (긴 텍스트 줄바꿈 시 상단 정렬)
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         ]))
         self.story.append(summary_table)
         self.story.append(Spacer(1, 1*cm))
