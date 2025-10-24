@@ -13,24 +13,33 @@ KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"
 KIS_APP_KEY = os.getenv("KIS_APP_KEY")
 KIS_APP_SECRET = os.getenv("KIS_APP_SECRET")
 
-# 토큰 캐시 (메모리)
-_token_cache: Dict[str, Any] = {}
-
-
 async def get_access_token() -> str:
     """
-    KIS API OAuth 토큰 발급 (캐시 사용)
+    KIS API OAuth 토큰 발급 (Redis 캐시 사용)
 
     Returns:
         str: Access Token
     """
-    global _token_cache
+    from cache import get_redis_client
+    import json
 
-    # 캐시된 토큰이 있고, 아직 유효하면 재사용
-    if _token_cache.get("token") and _token_cache.get("expires_at"):
-        if datetime.now() < _token_cache["expires_at"]:
-            print("✅ 캐시된 KIS 토큰 사용")
-            return _token_cache["token"]
+    redis_client = get_redis_client()
+    cache_key = "kis_access_token"
+
+    # Redis에서 캐시된 토큰 확인
+    if redis_client:
+        try:
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                token_data = json.loads(cached_data)
+                expires_at = datetime.fromisoformat(token_data["expires_at"])
+
+                # 토큰이 아직 유효하면 재사용
+                if datetime.now() < expires_at:
+                    print(f"✅ Redis 캐시된 KIS 토큰 사용 (만료: {expires_at.strftime('%Y-%m-%d %H:%M:%S')})")
+                    return token_data["token"]
+        except Exception as e:
+            print(f"⚠️ Redis 토큰 조회 실패: {str(e)}")
 
     # 새 토큰 발급
     print("🔄 KIS API 토큰 발급 중...")
@@ -53,13 +62,27 @@ async def get_access_token() -> str:
         token = data["access_token"]
         expires_in = data.get("expires_in", 86400)  # 기본 24시간
 
-        # 캐시 저장 (만료 5분 전까지 유효하게 설정)
-        _token_cache = {
-            "token": token,
-            "expires_at": datetime.now() + timedelta(seconds=expires_in - 300)
-        }
+        # 만료 5분 전까지 유효하게 설정
+        expires_at = datetime.now() + timedelta(seconds=expires_in - 300)
 
-        print(f"✅ KIS 토큰 발급 완료 (유효기간: {expires_in // 3600}시간)")
+        # Redis에 저장
+        if redis_client:
+            try:
+                token_data = {
+                    "token": token,
+                    "expires_at": expires_at.isoformat()
+                }
+                # TTL은 실제 만료 시간으로 설정
+                redis_client.setex(
+                    cache_key,
+                    expires_in - 300,  # 초 단위
+                    json.dumps(token_data)
+                )
+                print(f"✅ KIS 토큰 Redis 저장 완료 (유효기간: {expires_in // 3600}시간)")
+            except Exception as e:
+                print(f"⚠️ Redis 토큰 저장 실패: {str(e)}")
+
+        print(f"✅ KIS 토큰 발급 완료 (만료: {expires_at.strftime('%Y-%m-%d %H:%M:%S')})")
         return token
 
 

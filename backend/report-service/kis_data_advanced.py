@@ -10,61 +10,13 @@ import httpx
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 
+# KIS 토큰 관리는 kis_data.py에서 통합 관리
+from kis_data import get_access_token
 
 # KIS API 설정
 KIS_BASE_URL = "https://openapi.koreainvestment.com:9443"
 KIS_APP_KEY = os.getenv("KIS_APP_KEY")
 KIS_APP_SECRET = os.getenv("KIS_APP_SECRET")
-
-# 토큰 캐시 (메모리)
-_token_cache: Dict[str, Any] = {}
-
-
-async def get_access_token() -> str:
-    """
-    KIS API OAuth 토큰 발급 (캐시 사용)
-    kis_data.py와 동일한 로직 재사용
-
-    Returns:
-        str: Access Token
-    """
-    global _token_cache
-
-    # 캐시된 토큰이 있고, 아직 유효하면 재사용
-    if _token_cache.get("token") and _token_cache.get("expires_at"):
-        if datetime.now() < _token_cache["expires_at"]:
-            print("✅ 캐시된 KIS 토큰 사용")
-            return _token_cache["token"]
-
-    # 새 토큰 발급
-    print("🔄 KIS API 토큰 발급 중...")
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{KIS_BASE_URL}/oauth2/tokenP",
-            json={
-                "grant_type": "client_credentials",
-                "appkey": KIS_APP_KEY,
-                "appsecret": KIS_APP_SECRET
-            },
-            headers={"Content-Type": "application/json"}
-        )
-
-        if response.status_code != 200:
-            raise Exception(f"KIS 토큰 발급 실패: {response.status_code} {response.text}")
-
-        data = response.json()
-        token = data["access_token"]
-        expires_in = data.get("expires_in", 86400)  # 기본 24시간
-
-        # 캐시 저장 (만료 5분 전까지 유효하게 설정)
-        _token_cache = {
-            "token": token,
-            "expires_at": datetime.now() + timedelta(seconds=expires_in - 300)
-        }
-
-        print(f"✅ KIS 토큰 발급 완료 (유효기간: {expires_in // 3600}시간)")
-        return token
 
 
 async def get_order_book(symbol: str) -> Dict[str, Any]:
