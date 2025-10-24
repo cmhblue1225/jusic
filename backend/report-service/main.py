@@ -211,28 +211,68 @@ class ReportResponse(BaseModel):
 
 # ========== 유틸리티 함수 ==========
 
-def get_user_id_from_token(authorization: Optional[str]) -> Optional[str]:
+def get_user_id_from_token(authorization: Optional[str]) -> str:
     """
-    JWT 토큰에서 user_id 추출
+    JWT 토큰에서 user_id 추출 (보안 강화 버전)
 
     Args:
         authorization: Authorization 헤더 값 (Bearer <token>)
 
     Returns:
-        str: user_id 또는 None
+        str: user_id
+
+    Raises:
+        HTTPException: 인증 실패 시 401 에러
     """
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
+    # 1. Authorization 헤더 검증
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization 헤더가 누락되었습니다"
+        )
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization 형식 (Bearer 토큰 필요)"
+        )
 
     token = authorization.replace("Bearer ", "")
 
+    # 2. 토큰 길이 검증 (JWT는 최소 50자 이상)
+    if len(token) < 50:
+        raise HTTPException(
+            status_code=401,
+            detail="유효하지 않은 토큰 형식"
+        )
+
     try:
-        # Supabase Auth를 통한 토큰 검증
+        # 3. Supabase Auth를 통한 토큰 검증
         user = supabase.auth.get_user(token)
-        return user.user.id if user and user.user else None
+
+        if not user or not user.user:
+            raise HTTPException(
+                status_code=401,
+                detail="유효하지 않은 토큰 (사용자 정보 없음)"
+            )
+
+        print(f"✅ JWT 인증 성공: user_id={user.user.id}")
+        return user.user.id
+
+    except HTTPException:
+        # HTTPException은 그대로 전달
+        raise
+
     except Exception as e:
-        print(f"⚠️ 토큰 검증 실패: {str(e)}")
-        return None
+        # 예상치 못한 에러는 로깅 후 401 반환
+        print(f"❌ JWT 토큰 검증 중 오류 발생: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=401,
+            detail=f"토큰 검증 실패: {str(e)}"
+        )
 
 
 # ========== 차트 데이터 준비 함수 ==========
@@ -935,8 +975,7 @@ async def bookmark_report(
     response.headers["Access-Control-Allow-Origin"] = "*"
 
     user_id = get_user_id_from_token(authorization)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="인증이 필요합니다")
+    # get_user_id_from_token()이 이제 자동으로 HTTPException을 발생시킴
 
     symbol = request.symbol
     symbol_name = request.symbol_name
@@ -1011,9 +1050,7 @@ async def get_bookmarks(authorization: Optional[str] = Header(None)):
         List[Dict]: 북마크된 레포트 목록
     """
     user_id = get_user_id_from_token(authorization)
-
-    if not user_id:
-        raise HTTPException(status_code=401, detail="인증이 필요합니다")
+    # get_user_id_from_token()이 이제 자동으로 HTTPException을 발생시킴
 
     try:
         result = supabase.table("stock_reports") \
@@ -1043,9 +1080,7 @@ async def delete_bookmark(bookmark_id: str, authorization: Optional[str] = Heade
         Dict: 삭제 결과
     """
     user_id = get_user_id_from_token(authorization)
-
-    if not user_id:
-        raise HTTPException(status_code=401, detail="인증이 필요합니다")
+    # get_user_id_from_token()이 이제 자동으로 HTTPException을 발생시킴
 
     try:
         # 먼저 북마크 소유자 확인
