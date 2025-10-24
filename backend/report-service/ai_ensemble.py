@@ -292,9 +292,9 @@ async def analyze_with_gpt4(
     sector_relative = sector_relative or {}
     sector_relative_text = ""
     if sector_relative.get("sample_size", 0) > 0:
-        relative_strength_val = sector_relative.get("relative_strength", 1.0)
-        outperformance = sector_relative.get("outperformance", 0)
-        sector_avg_change = sector_relative.get("sector_avg_change_rate", 0)
+        relative_strength_val = sector_relative.get("relative_strength") or 1.0
+        outperformance = sector_relative.get("outperformance") or 0
+        sector_avg_change = sector_relative.get("sector_avg_change_rate") or 0
 
         performance_label = "초과 수익" if outperformance > 0 else "하회" if outperformance < 0 else "동일"
         strength_label = "강세" if relative_strength_val > 1.1 else "약세" if relative_strength_val < 0.9 else "중립"
@@ -338,8 +338,8 @@ async def analyze_with_gpt4(
     market_index = market_index or {}
     market_text = ""
     if market_index.get("kospi_value"):
-        kospi_change = market_index.get('kospi_change_rate', 0)
-        stock_change = price_data.get('change_rate', 0)
+        kospi_change = market_index.get('kospi_change_rate') or 0
+        stock_change = price_data.get('change_rate') or 0
         relative_strength = "강세" if stock_change > kospi_change else "약세" if stock_change < kospi_change else "동조"
 
         market_text = f"""
@@ -674,9 +674,9 @@ async def analyze_with_claude(
     sector_relative = sector_relative or {}
     sector_relative_text = ""
     if sector_relative.get("sample_size", 0) > 0:
-        relative_strength_val = sector_relative.get("relative_strength", 1.0)
-        outperformance = sector_relative.get("outperformance", 0)
-        sector_avg_change = sector_relative.get("sector_avg_change_rate", 0)
+        relative_strength_val = sector_relative.get("relative_strength") or 1.0
+        outperformance = sector_relative.get("outperformance") or 0
+        sector_avg_change = sector_relative.get("sector_avg_change_rate") or 0
 
         performance_label = "초과 수익" if outperformance > 0 else "하회" if outperformance < 0 else "동일"
         strength_label = "강세" if relative_strength_val > 1.1 else "약세" if relative_strength_val < 0.9 else "중립"
@@ -720,8 +720,8 @@ async def analyze_with_claude(
     market_index = market_index or {}
     market_text = ""
     if market_index.get("kospi_value"):
-        kospi_change = market_index.get('kospi_change_rate', 0)
-        stock_change = price_data.get('change_rate', 0)
+        kospi_change = market_index.get('kospi_change_rate') or 0
+        stock_change = price_data.get('change_rate') or 0
         relative_strength = "강세" if stock_change > kospi_change else "약세" if stock_change < kospi_change else "동조"
 
         market_text = f"""
