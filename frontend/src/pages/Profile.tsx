@@ -226,9 +226,14 @@ export default function Profile() {
             </div>
 
             <div>
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                읽기 속도: {ttsSpeed.toFixed(1)}x
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-lg font-medium text-gray-700">
+                  읽기 속도: {ttsSpeed.toFixed(1)}x
+                </label>
+                <span className="text-sm text-gray-500">
+                  {ttsSpeed < 0.8 ? '매우 느림' : ttsSpeed < 1.0 ? '느림' : ttsSpeed === 1.0 ? '보통' : ttsSpeed < 1.5 ? '빠름' : '매우 빠름'}
+                </span>
+              </div>
               <input
                 type="range"
                 min="0.5"
@@ -236,14 +241,33 @@ export default function Profile() {
                 step="0.1"
                 value={ttsSpeed}
                 onChange={(e) => setTtsSpeed(parseFloat(e.target.value))}
-                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-3 bg-gradient-to-r from-blue-200 to-blue-500 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                style={{
+                  background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${((ttsSpeed - 0.5) / 1.5) * 100}%, #E5E7EB ${((ttsSpeed - 0.5) / 1.5) * 100}%, #E5E7EB 100%)`
+                }}
               />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0.5x</span>
+                <button
+                  onClick={() => setTtsSpeed(1.0)}
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                  type="button"
+                >
+                  기본값 (1.0x)
+                </button>
+                <span>2.0x</span>
+              </div>
             </div>
 
             <div>
-              <label className="block text-lg font-medium text-gray-700 mb-2">
-                볼륨: {Math.round(ttsVolume * 100)}%
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-lg font-medium text-gray-700">
+                  볼륨: {Math.round(ttsVolume * 100)}%
+                </label>
+                <span className="text-sm text-gray-500">
+                  {ttsVolume === 0 ? '음소거' : ttsVolume < 0.3 ? '작음' : ttsVolume < 0.7 ? '보통' : '크게'}
+                </span>
+              </div>
               <input
                 type="range"
                 min="0"
@@ -251,8 +275,22 @@ export default function Profile() {
                 step="0.1"
                 value={ttsVolume}
                 onChange={(e) => setTtsVolume(parseFloat(e.target.value))}
-                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                style={{
+                  background: `linear-gradient(to right, #10B981 0%, #10B981 ${ttsVolume * 100}%, #E5E7EB ${ttsVolume * 100}%, #E5E7EB 100%)`
+                }}
               />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0%</span>
+                <button
+                  onClick={() => setTtsVolume(1.0)}
+                  className="text-green-600 hover:text-green-800 font-medium"
+                  type="button"
+                >
+                  최대 (100%)
+                </button>
+                <span>100%</span>
+              </div>
             </div>
 
             <div>
