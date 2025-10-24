@@ -73,12 +73,23 @@ print(f"📝 [PDF Generator] 사용할 폰트: Regular={FONT_REGULAR}, Bold={FON
 try:
     import matplotlib.font_manager as fm
     font_path = os.path.join(FONTS_DIR, 'NotoSansKR-Regular.ttf')
-    font_prop = fm.FontProperties(fname=font_path)
-    plt.rcParams['font.family'] = font_prop.get_name()
-    plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
-    print(f"✅ matplotlib 한글 폰트 설정 완료: {font_prop.get_name()}")
+
+    if os.path.exists(font_path):
+        # 폰트 파일을 matplotlib에 직접 등록
+        fm.fontManager.addfont(font_path)
+        font_name = fm.FontProperties(fname=font_path).get_name()
+
+        # rcParams 설정
+        plt.rcParams['font.family'] = font_name
+        plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
+        print(f"✅ matplotlib 한글 폰트 설정 완료: {font_name}")
+    else:
+        print(f"⚠️ matplotlib 한글 폰트 파일 없음: {font_path}")
+        print("   → 차트 한글이 깨질 수 있음")
 except Exception as e:
     print(f"⚠️ matplotlib 한글 폰트 설정 실패: {e}")
+    import traceback
+    traceback.print_exc()
     print("   → 차트 한글이 깨질 수 있음")
 
 
@@ -394,23 +405,35 @@ class StockReportPDF:
 
         target_prices = self.data.get('target_prices', {})
 
-        # 목표가 테이블
+        # 목표가 테이블 (숫자일 때만 천 단위 구분자 사용)
+        def format_price(value):
+            """가격 포맷팅 (숫자일 때만 천 단위 구분자)"""
+            if value and isinstance(value, (int, float)):
+                return f"{value:,.0f}원"
+            return 'N/A'
+
+        def format_percent(value):
+            """퍼센트 포맷팅"""
+            if value and isinstance(value, (int, float)):
+                return f"{value:.1f}%"
+            return 'N/A'
+
         target_data = [
             ['시나리오', '목표가', '상승 여력'],
             [
                 '보수적',
-                f"{target_prices.get('conservative', 'N/A'):,}원" if target_prices.get('conservative') else 'N/A',
-                f"{target_prices.get('upside_potential', {}).get('conservative', 'N/A')}%"
+                format_price(target_prices.get('conservative')),
+                format_percent(target_prices.get('upside_potential', {}).get('conservative'))
             ],
             [
                 '중립적',
-                f"{target_prices.get('neutral', 'N/A'):,}원" if target_prices.get('neutral') else 'N/A',
-                f"{target_prices.get('upside_potential', {}).get('neutral', 'N/A')}%"
+                format_price(target_prices.get('neutral')),
+                format_percent(target_prices.get('upside_potential', {}).get('neutral'))
             ],
             [
                 '공격적',
-                f"{target_prices.get('aggressive', 'N/A'):,}원" if target_prices.get('aggressive') else 'N/A',
-                f"{target_prices.get('upside_potential', {}).get('aggressive', 'N/A')}%"
+                format_price(target_prices.get('aggressive')),
+                format_percent(target_prices.get('upside_potential', {}).get('aggressive'))
             ],
         ]
 
@@ -450,12 +473,16 @@ class StockReportPDF:
             for key, label in [('short_term', '단기'), ('medium_term', '중기'), ('long_term', '장기')]:
                 strategy = strategies.get(key, {})
                 if strategy:
+                    # 목표가 안전하게 포맷팅
+                    target_price_val = strategy.get('target_price')
+                    target_price_str = format_price(target_price_val) if target_price_val else 'N/A'
+
                     strategy_text = f"""
                     <para>
                         <b>{label} ({strategy.get('timeframe', '')})</b><br/>
                         전망: {strategy.get('outlook', 'N/A')}<br/>
                         주요 요인: {strategy.get('key_factors', 'N/A')}<br/>
-                        목표가: {strategy.get('target_price', 'N/A'):,}원
+                        목표가: {target_price_str}
                     </para>
                     """
                     self.story.append(Paragraph(strategy_text, self.styles['CustomBody']))
