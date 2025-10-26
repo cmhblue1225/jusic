@@ -56,6 +56,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:3005",  # Admin Dashboard (개발 - 대체 포트)
     "http://localhost:5173",
     "https://admin-dashboard-production.up.railway.app",
+    "https://admin-dashboard-production-1909.up.railway.app",  # Admin Dashboard (Railway 실제 배포)
     "https://admin.jusik.minhyuk.kr",
 ]
 
