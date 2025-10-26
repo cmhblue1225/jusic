@@ -15,6 +15,12 @@ print("=" * 60)
 load_dotenv()
 print("✅ .env 로드 완료")
 
+# 환경 변수 디버깅 (Railway 배포용)
+print(f"🔍 PORT: {os.getenv('PORT', 'NOT SET')}")
+print(f"🔍 SUPABASE_URL: {os.getenv('SUPABASE_URL', 'NOT SET')[:30]}...")
+print(f"🔍 SUPABASE_SERVICE_KEY: {'설정됨' if os.getenv('SUPABASE_SERVICE_KEY') else 'NOT SET'}")
+print(f"🔍 RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT', 'NOT SET')}")
+
 # Sentry 에러 추적 초기화
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration

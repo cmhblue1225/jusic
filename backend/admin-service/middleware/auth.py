@@ -16,11 +16,16 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not SUPABASE_ANON_KEY:
-    raise RuntimeError("SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_ANON_KEY 환경 변수가 설정되지 않았습니다.")
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    raise RuntimeError("SUPABASE_URL, SUPABASE_SERVICE_KEY 환경 변수가 설정되지 않았습니다.")
 
-# JWT 검증용 클라이언트 (ANON_KEY 사용)
-supabase_auth: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# JWT 검증용 클라이언트 (ANON_KEY 우선, 없으면 SERVICE_KEY 사용)
+if SUPABASE_ANON_KEY:
+    supabase_auth: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    print("✅ Auth: ANON_KEY 사용")
+else:
+    supabase_auth: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    print("⚠️  Auth: ANON_KEY 없음, SERVICE_KEY 사용 (권장하지 않음)")
 
 # 데이터 조회용 클라이언트 (SERVICE_KEY 사용 - RLS 우회)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
