@@ -26,6 +26,15 @@ export default function Login() {
     }
   };
 
+  const handleTestLogin = async () => {
+    try {
+      await login('test@test.com', 'test1234');
+      // 로그인 성공 시 useEffect에서 자동으로 리디렉션
+    } catch (error) {
+      console.error('테스트 계정 로그인 실패:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -85,6 +94,26 @@ export default function Login() {
               로그인
             </button>
           </form>
+
+          {/* 테스트 계정 로그인 버튼 */}
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">또는</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleTestLogin}
+              className="mt-4 w-full text-base px-6 py-3 border-2 border-primary-600 text-primary-600 rounded-lg font-medium hover:bg-primary-50 transition-colors"
+            >
+              🚀 테스트 계정으로 로그인 (test@test.com)
+            </button>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-500">

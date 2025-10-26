@@ -123,6 +123,21 @@ export default function Login() {
               </Link>
             </p>
           </div>
+
+          {/* 관리자 페이지 이동 버튼 */}
+          <div className="pt-4 border-t border-gray-200">
+            <a
+              href="https://admin-dashboard-production-1909.up.railway.app/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center w-full text-base px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+            >
+              🛡️ 관리자 페이지로 이동
+            </a>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              관리자 권한이 필요합니다
+            </p>
+          </div>
         </form>
       </div>
     </div>
