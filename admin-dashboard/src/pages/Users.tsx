@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Edit, Trash2, Ban, CheckCircle } from 'lucide-react';
+import { Search, Trash2, Ban, CheckCircle } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import type { User } from '@/types';
 

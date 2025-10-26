@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 
 export default function Metrics() {
@@ -12,7 +12,7 @@ export default function Metrics() {
     refetchInterval: 60000,
   });
 
-  const { data: systemMetrics } = useQuery({
+  const { data: _systemMetrics } = useQuery({
     queryKey: ['system-metrics', timeRange],
     queryFn: () => adminApi.getSystemMetrics({ hours: timeRange }),
   });

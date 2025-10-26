@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Download, Filter } from 'lucide-react';
+import { FileText, Download } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 import type { AdminActivityLog } from '@/types';
 

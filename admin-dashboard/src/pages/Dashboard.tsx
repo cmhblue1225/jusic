@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Users, Server, Activity, Database, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, Activity, Database, TrendingUp, AlertCircle } from 'lucide-react';
 import { adminApi } from '@/lib/adminApi';
 
 // 통계 카드 컴포넌트
