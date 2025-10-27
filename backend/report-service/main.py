@@ -20,6 +20,9 @@ from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+# 🔥 하이브리드 뉴스 크롤링 모듈 임포트
+from realtime_news_fetcher import get_news_hybrid, get_news_db_only
+
 print("=" * 60)
 print("🚀 Report Service 초기화 시작...")
 print("=" * 60)
@@ -624,21 +627,24 @@ async def generate_report(
 
         async def safe_get_news():
             try:
-                # 🔥 Phase 1.1: 뉴스 데이터 확장 (당일 → 7일, 10개 → 50개)
-                seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                # 🔥 하이브리드 뉴스 조회 (DB 우선 → 12시간 이상 오래되었으면 실시간 크롤링)
+                threshold_hours = int(os.getenv("NEWS_FRESHNESS_THRESHOLD", "12"))
+                max_fresh_news = int(os.getenv("REALTIME_CRAWL_MAX_RESULTS", "10"))
 
-                news_result = supabase.table("news") \
-                    .select("id, title, summary, sentiment_score, impact_score, published_at, url") \
-                    .contains("related_symbols", [symbol]) \
-                    .gte("published_at", seven_days_ago) \
-                    .order("impact_score", desc=True) \
-                    .order("published_at", desc=True) \
-                    .limit(50) \
-                    .execute()
-                return news_result.data or []
+                return await get_news_hybrid(
+                    symbol=symbol,
+                    stock_name=None,  # 내부에서 stock_master 조회
+                    threshold_hours=threshold_hours,
+                    max_fresh_news=max_fresh_news
+                )
             except Exception as e:
-                print(f"⚠️ 뉴스 조회 실패: {str(e)}")
-                return []
+                print(f"⚠️ 하이브리드 뉴스 조회 실패: {str(e)}")
+                # 폴백: DB 전용 조회
+                try:
+                    return await get_news_db_only(symbol)
+                except Exception as fallback_error:
+                    print(f"❌ DB 전용 뉴스 조회도 실패: {str(fallback_error)}")
+                    return []
 
         # 🔥 Phase 1.2: 신규 데이터 조회 함수 7개
         async def safe_get_analyst_opinion():
